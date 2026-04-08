@@ -96,6 +96,26 @@ def test_coherent_tv_rejects_invalid_roic():
         terminal_value_coherent(nopat_t_plus_1=100, wacc=0.10, growth=0.03, roic_new_investments=0)
 
 
+def test_coherent_tv_rejects_h_above_one():
+    """P1.4: if g > ROIC_NI the implied h > 1 → meaningless TV."""
+    with pytest.raises(ValueError, match=r"out of \[0, 1\]"):
+        terminal_value_coherent(
+            nopat_t_plus_1=100,
+            wacc=0.10,
+            growth=0.05,
+            roic_new_investments=0.04,  # ROIC < g → h > 1
+        )
+
+
+def test_coherent_tv_accepts_h_exactly_one():
+    """Boundary: h = 1 (g == ROIC_NI) is accepted (and FCFF normalized = 0)."""
+    tv = terminal_value_coherent(
+        nopat_t_plus_1=100, wacc=0.15, growth=0.10, roic_new_investments=0.10
+    )
+    # FCFF_normalized = 100 · (1 - 1) = 0 → TV = 0
+    assert tv == pytest.approx(0.0)
+
+
 def test_two_stage_equity_value_with_excess_cash():
     r = value_two_stage(
         TwoStageInputs(

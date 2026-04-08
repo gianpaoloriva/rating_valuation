@@ -248,8 +248,9 @@ def test_simulate_period_vectorized_matches_scalar():
         assert o_v[idx] == pytest.approx(o_s)
 
 
-def test_simulate_period_cash_monotonic():
-    """Cash is never allowed to decrease in this simplified model."""
+def test_simulate_period_cash_unchanged_when_debt_positive():
+    """When the unclamped debt is positive, cash is unchanged (no
+    endogenous cash accumulation — the company still needs funding)."""
     d, c, i, o = simulate_period_scalar(
         debt_prev=50.0,
         cash_prev=20.0,
@@ -259,4 +260,120 @@ def test_simulate_period_cash_monotonic():
         cost_of_debt=0.045,
         tax_rate=0.28,
     )
-    assert c >= 20.0
+    assert c == pytest.approx(20.0)
+
+
+def test_simulate_period_eq6_literal():
+    """Post-audit (TODO.md P1.2): the closed-form [6] is applied without a
+    spurious ``max(0, excess_cash)`` gate. In the reduced model the clamped
+    case always produces a non-negative excess by construction (because
+    ``raw_debt < 0 ⇔ NOPAT > D·(1+β) + ΔNIC``, which is exactly the
+    condition for ``excess_cash > 0``), so the removal of the gate is a
+    no-op on any input — but the formula now matches the paper literally.
+
+    This test asserts the eq. [6] identity on a clamped scenario.
+    """
+    debt_prev = 10.0
+    cash_prev = 5.0
+    nopat = 500.0
+    delta_nic = 0.0
+    cost = 0.045
+    tax = 0.28
+    d, c, i, o = simulate_period_scalar(
+        debt_prev=debt_prev,
+        cash_prev=cash_prev,
+        nopat=nopat,
+        delta_nic=delta_nic,
+        capital_increase=0.0,
+        cost_of_debt=cost,
+        tax_rate=tax,
+    )
+    # Debt clamped at 0
+    assert d == pytest.approx(0.0)
+    # Eq. [6] literal: CASH_t − CASH_{t-1} = D_t − D_{t-1} + OCF_t − INT_t + ΔCAP_t
+    delta_cash_expected = 0.0 - debt_prev + o - i + 0.0
+    assert c - cash_prev == pytest.approx(delta_cash_expected, rel=1e-9)
+
+
+def test_simulate_period_cash_yield_on_previous_stock():
+    """P3.11: with cash_yield > 0 the previous cash earns interest
+    (Appendix A extension). Direction only — the exact OCF delta depends
+    on the endogenous interest on the reduced debt, so we assert the
+    qualitative improvement rather than an exact identity."""
+    d_noyield, _, _, o_noyield = simulate_period_scalar(
+        debt_prev=100.0,
+        cash_prev=50.0,
+        nopat=10.0,
+        delta_nic=5.0,
+        capital_increase=0.0,
+        cost_of_debt=0.045,
+        tax_rate=0.28,
+        cash_yield=0.0,
+    )
+    d_yield, _, _, o_yield = simulate_period_scalar(
+        debt_prev=100.0,
+        cash_prev=50.0,
+        nopat=10.0,
+        delta_nic=5.0,
+        capital_increase=0.0,
+        cost_of_debt=0.045,
+        tax_rate=0.28,
+        cash_yield=0.03,
+    )
+    # Cash yield improves OCF → lower ending debt + higher OCF
+    assert d_yield < d_noyield
+    assert o_yield > o_noyield
+
+
+def test_simulate_period_debt_floor_enforced():
+    """P3.16: debt cannot drop below the configured floor even with a
+    massive NOPAT that would otherwise clamp it to zero."""
+    d, c, i, o = simulate_period_scalar(
+        debt_prev=50.0,
+        cash_prev=0.0,
+        nopat=500.0,
+        delta_nic=0.0,
+        capital_increase=0.0,
+        cost_of_debt=0.045,
+        tax_rate=0.28,
+        debt_floor=30.0,
+    )
+    # Debt cannot go below the floor
+    assert d == pytest.approx(30.0)
+    # Cash accumulates the excess that the floor prevents from repaying debt
+    assert c > 0.0
+
+
+def test_simulate_period_payout_ratio_increases_debt():
+    """P3.15: paying dividends increases the ending debt (ceteris paribus)."""
+    _, _, _, _ = simulate_period_scalar(
+        debt_prev=100.0,
+        cash_prev=10.0,
+        nopat=40.0,
+        delta_nic=5.0,
+        capital_increase=0.0,
+        cost_of_debt=0.045,
+        tax_rate=0.28,
+        payout_ratio=0.0,
+    )
+    d_no, c_no, _, _ = simulate_period_scalar(
+        debt_prev=100.0,
+        cash_prev=10.0,
+        nopat=40.0,
+        delta_nic=5.0,
+        capital_increase=0.0,
+        cost_of_debt=0.045,
+        tax_rate=0.28,
+        payout_ratio=0.0,
+    )
+    d_yes, _, _, _ = simulate_period_scalar(
+        debt_prev=100.0,
+        cash_prev=10.0,
+        nopat=40.0,
+        delta_nic=5.0,
+        capital_increase=0.0,
+        cost_of_debt=0.045,
+        tax_rate=0.28,
+        payout_ratio=0.50,
+    )
+    assert d_yes > d_no

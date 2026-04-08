@@ -75,7 +75,16 @@ def wacc_pre_tax(inputs: WACCInputs) -> float:
 
 
 def discount_factor(rate: float, t: int) -> float:
-    """Single-period discount factor ``1 / (1+r)^t``."""
+    """Single-period discount factor ``1 / (1+r)^t``.
+
+    ``t`` must be a non-negative integer. The paper uses end-of-period
+    convention; mid-year discounting (t=0.5) is not supported and the
+    caller should be explicit if they want it.
+    """
+    if not isinstance(t, int) or isinstance(t, bool) or t < 0:
+        raise ValueError(
+            f"discount_factor: t must be a non-negative integer, got {t!r}"
+        )
     if not isfinite(rate) or rate <= -1.0:
         raise ValueError(f"Invalid discount rate: {rate}")
     return 1.0 / (1.0 + rate) ** t
@@ -136,11 +145,22 @@ def reinvestment_rate(growth: float, roic_new_investments: float) -> float:
     """Coherent reinvestment ratio from the TV paper: ``h = g / ROIC``.
 
     Represents the share of NOPAT that must be reinvested to sustain growth g
-    given the return ROIC on new investments.
+    given the return ROIC on new investments. Must satisfy ``h ∈ [0, 1]``:
+    a value > 1 would mean the company reinvests more than its entire NOPAT
+    to sustain the declared growth, which is economically infeasible
+    (it implies ``g > ROIC`` — the new investments are not profitable enough
+    to support the growth rate, and the free cash flow is negative forever).
     """
     if roic_new_investments == 0:
         raise ZeroDivisionError("Reinvestment rate undefined: ROIC is zero")
-    return growth / roic_new_investments
+    h = growth / roic_new_investments
+    if not 0.0 <= h <= 1.0:
+        raise ValueError(
+            f"Reinvestment rate h = g/ROIC_NI = {h:.4f} out of [0, 1] "
+            f"(g={growth}, ROIC_NI={roic_new_investments}). "
+            f"Se ROIC_NI < g il reinvestimento supera il 100% del NOPAT (insostenibile)."
+        )
+    return h
 
 
 def implied_growth(roic_new_investments: float, reinvestment: float) -> float:

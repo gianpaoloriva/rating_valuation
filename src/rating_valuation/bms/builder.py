@@ -23,6 +23,7 @@ by the Differential Analyzer to compare the target against the sector.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import ClassVar
 
@@ -96,12 +97,23 @@ class BMSResult:
     peer_income_shares / peer_balance_shares:
         DataFrame (una riga per peer) con le normalizzazioni individuali,
         utile per l'ispezione e i grafici.
+    income_statement_shares_median / p25 / p75:
+        Robust statistics (median, 25th and 75th percentile) of the peer
+        shares. Useful for banding and for flagging peers that deviate from
+        the central tendency. Not in the original paper but a natural
+        extension requested by P4.20.
+    balance_sheet_shares_median / p25 / p75:
+        Same for balance sheet items.
     below_min_sample:
         True se il campione ha meno di ``min_sample_size`` imprese: il BMS è
         comunque calcolato, ma il chiamante deve valutare la significatività.
     min_sample_size:
         Soglia minima considerata rappresentativa (default 20 secondo il
         paper Scarano/Brughera).
+    excluded_as_outliers:
+        Tuple di company_id rimossi dal campione per eccesso di dimensione
+        (vedi ``BMSBuilder(outlier_sigma=...)``). Vuota se non si applica
+        lo screening.
     """
 
     fiscal_year: int
@@ -117,8 +129,15 @@ class BMSResult:
     line_by_line_sum_balance: pd.Series
     peer_income_shares: pd.DataFrame
     peer_balance_shares: pd.DataFrame
+    income_statement_shares_median: pd.Series
+    income_statement_shares_p25: pd.Series
+    income_statement_shares_p75: pd.Series
+    balance_sheet_shares_median: pd.Series
+    balance_sheet_shares_p25: pd.Series
+    balance_sheet_shares_p75: pd.Series
     below_min_sample: bool
     min_sample_size: int
+    excluded_as_outliers: tuple[str, ...] = ()
 
     # ------------------------------------------------------------------
     # Convenience accessors
@@ -183,11 +202,49 @@ class BMSBuilder:
         *,
         fiscal_year: int | None = None,
         min_sample_size: int = DEFAULT_MIN_SAMPLE,
+        outlier_sigma: float | None = None,
     ) -> None:
+        """Initialize the builder.
+
+        Parameters
+        ----------
+        peers : pd.DataFrame
+            Peer sample. If any row has ``is_target == 1``, it is excluded
+            with a ``UserWarning`` (the target must not be part of its own
+            sector average).
+        fiscal_year : int, optional
+            Filter the input to a single year if it spans multiple.
+        min_sample_size : int, default 20
+            Threshold below which the ``below_min_sample`` flag is set.
+        outlier_sigma : float, optional
+            If set, drop peers whose revenues are more than
+            ``outlier_sigma`` standard deviations away from the sample mean.
+            Typical value: 2.5. Implements the screening described but not
+            prescribed in Scarano/Brughera ("imprese molto più grandi
+            possono polarizzare il modello"). Disabled by default.
+        """
         if peers.empty:
             raise ValueError("Cannot build BMS from an empty peer sample")
 
         df = peers.copy()
+
+        # --- Auto-exclude target rows (paper requirement) -----------------
+        excluded_targets: list[str] = []
+        if "is_target" in df.columns and (df["is_target"] == 1).any():
+            target_ids = df.loc[df["is_target"] == 1, "company_id"].tolist()
+            warnings.warn(
+                f"BMSBuilder: il campione include {len(target_ids)} riga/e "
+                f"con is_target=1 ({target_ids}). Verranno escluse dal BMS. "
+                f"Usare peer_sample(...) a monte per evitare questo warning.",
+                stacklevel=2,
+            )
+            excluded_targets = target_ids
+            df = df[df["is_target"] == 0]
+            if df.empty:
+                raise ValueError(
+                    "After excluding target rows the peer sample is empty"
+                )
+
         if fiscal_year is not None:
             df = df[df["fiscal_year"] == fiscal_year]
             if df.empty:
@@ -200,9 +257,31 @@ class BMSBuilder:
                 "Filter upstream or pass fiscal_year=."
             )
 
+        # --- Optional outlier screening on revenues (P4.19) ---------------
+        excluded_outliers: list[str] = []
+        if outlier_sigma is not None:
+            if outlier_sigma <= 0:
+                raise ValueError(
+                    f"outlier_sigma must be positive, got {outlier_sigma}"
+                )
+            mean_rev = df["revenues"].mean()
+            std_rev = df["revenues"].std(ddof=0)
+            if std_rev > 0:
+                z = (df["revenues"] - mean_rev).abs() / std_rev
+                outlier_mask = z > outlier_sigma
+                if outlier_mask.any():
+                    excluded_outliers = df.loc[outlier_mask, "company_id"].tolist()
+                    df = df[~outlier_mask]
+                    if df.empty:
+                        raise ValueError(
+                            f"outlier_sigma={outlier_sigma} removed all peers"
+                        )
+
         self.peers: pd.DataFrame = df.reset_index(drop=True)
         self.fiscal_year: int = int(unique_years[0])
         self.min_sample_size: int = min_sample_size
+        self._excluded_outliers: tuple[str, ...] = tuple(excluded_outliers)
+        self._excluded_targets: tuple[str, ...] = tuple(excluded_targets)
 
     # ------------------------------------------------------------------
 
@@ -224,6 +303,14 @@ class BMSBuilder:
         # --- Equal-weight means of the shares ---------------------------
         income_shares = peer_income_shares[list(INCOME_STATEMENT_ITEMS)].mean(axis=0)
         balance_shares = peer_balance_shares[list(BALANCE_SHEET_ITEMS)].mean(axis=0)
+
+        # --- Robust central-tendency statistics (P4.20) -----------------
+        income_median = peer_income_shares[list(INCOME_STATEMENT_ITEMS)].median(axis=0)
+        income_p25 = peer_income_shares[list(INCOME_STATEMENT_ITEMS)].quantile(0.25, axis=0)
+        income_p75 = peer_income_shares[list(INCOME_STATEMENT_ITEMS)].quantile(0.75, axis=0)
+        balance_median = peer_balance_shares[list(BALANCE_SHEET_ITEMS)].median(axis=0)
+        balance_p25 = peer_balance_shares[list(BALANCE_SHEET_ITEMS)].quantile(0.25, axis=0)
+        balance_p75 = peer_balance_shares[list(BALANCE_SHEET_ITEMS)].quantile(0.75, axis=0)
 
         # --- Average scaling bases --------------------------------------
         average_revenues = float(peers["revenues"].mean())
@@ -251,8 +338,15 @@ class BMSBuilder:
             line_by_line_sum_balance=line_by_line_sum_balance,
             peer_income_shares=peer_income_shares,
             peer_balance_shares=peer_balance_shares,
+            income_statement_shares_median=income_median,
+            income_statement_shares_p25=income_p25,
+            income_statement_shares_p75=income_p75,
+            balance_sheet_shares_median=balance_median,
+            balance_sheet_shares_p25=balance_p25,
+            balance_sheet_shares_p75=balance_p75,
             below_min_sample=n < self.min_sample_size,
             min_sample_size=self.min_sample_size,
+            excluded_as_outliers=self._excluded_outliers,
         )
 
 

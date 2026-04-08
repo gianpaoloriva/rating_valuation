@@ -112,12 +112,22 @@ def terminal_value_coherent(
 
     When ``roic_new_investments == wacc`` this simplifies to ``NOPAT_{T+1} / wacc``
     (steady state, no value from extra growth).
+
+    Enforces ``h_T = g / ROIC_NI`` in ``[0, 1]``: a reinvestment rate above 100%
+    of NOPAT means the business is cash-flow negative in perpetuity and the
+    TV is economically meaningless.
     """
     if wacc <= growth:
         raise ValueError(f"WACC ({wacc}) must exceed growth ({growth})")
     if roic_new_investments <= 0:
         raise ValueError("ROIC on new investments must be positive")
     reinvestment = growth / roic_new_investments
+    if not 0.0 <= reinvestment <= 1.0:
+        raise ValueError(
+            f"Reinvestment rate h = g/ROIC_NI = {reinvestment:.4f} out of [0, 1] "
+            f"(g={growth}, ROIC_NI={roic_new_investments}). "
+            f"Se ROIC_NI < g il reinvestimento supera il 100% del NOPAT (insostenibile)."
+        )
     fcff_normalized = nopat_t_plus_1 * (1.0 - reinvestment)
     return perpetuity(fcff_normalized, wacc, growth)
 

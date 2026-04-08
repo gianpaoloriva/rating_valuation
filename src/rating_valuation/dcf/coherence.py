@@ -1,7 +1,15 @@
 """Terminal Value coherence validator.
 
-Encodes the 6 mandatory checks described in the Scarano/Di Napoli paper
-(Rivista AIAF n. 66, 2008, pp. 27-32) and in the `dcf-validator` subagent.
+Encodes the coherence checks described in the Scarano/Di Napoli paper
+(Rivista AIAF n. 66, 2008, pp. 27-32) and in the `dcf-validator` subagent:
+
+    C1 — g <= GDP nominal growth (long run)
+    C2 — g = ROIC_NI * h_T
+    C3 — TV formula uses the reinvestment adjustment (or steady-state shortcut)
+    C4 — TV share of enterprise value is not pathologically high
+    C5 — ROIC_marginal converges to WACC at the end of the explicit period
+    C6 — sign and bound checks (wacc > g, NOPAT > 0, g >= -inflation)
+    C7 — reinvestment rate h_T = g/ROIC_NI is inside [0, 1]
 
 Any ERROR should block the DCF from being accepted as a valid valuation.
 WARNING should be surfaced to the analyst but does not block.
@@ -12,6 +20,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
+
+import pandas as pd
 
 
 class Severity(str, Enum):
@@ -65,6 +75,57 @@ class CoherenceReport:
 # -----------------------------------------------------------------------------
 # Individual checks
 # -----------------------------------------------------------------------------
+
+
+def check_g_below_gdp_from_macro(
+    growth: float,
+    country: str,
+    year: int,
+    macro_df: pd.DataFrame | None = None,
+    tolerance: float = 0.0005,
+) -> CoherenceCheck:
+    """Convenience wrapper around :func:`check_g_below_gdp`.
+
+    Reads ``gdp_nominal_growth_5y_avg`` for ``(country, year)`` directly from
+    ``data/macro.csv`` instead of requiring the caller to pass it explicitly.
+    This is the form the Scarano/Di Napoli paper implicitly assumes: the
+    GDP cap is a macro constant that should be automatically enforced, not
+    a parameter the analyst can quietly dodge.
+
+    Parameters
+    ----------
+    growth : float
+        Terminal growth rate to validate.
+    country : str
+        ISO-3166 alpha-2 country code (e.g. ``"IT"``).
+    year : int
+        Fiscal year base used to pick the macro row.
+    macro_df : pd.DataFrame, optional
+        If provided, skip the CSV load and use this DataFrame. Useful for
+        tests and for callers that already have a preloaded bundle.
+    tolerance : float
+        Same meaning as in :func:`check_g_below_gdp`.
+    """
+    if macro_df is None:
+        # Local import to avoid a circular dependency with data_loader
+        from rating_valuation.common.data_loader import load_macro
+
+        macro_df = load_macro()
+
+    row = macro_df[(macro_df["country"] == country) & (macro_df["year"] == year)]
+    if row.empty:
+        return CoherenceCheck(
+            code="C1",
+            name="g <= GDP nominal growth (long run)",
+            severity=Severity.ERROR,
+            message=(
+                f"Nessun record macro per country={country!r}, year={year}. "
+                f"Impossibile validare il cap su g."
+            ),
+            detail={"country": country, "year": year, "g": growth},
+        )
+    gdp_5y = float(row.iloc[0]["gdp_nominal_growth_5y_avg"])
+    return check_g_below_gdp(growth, gdp_5y, tolerance=tolerance)
 
 
 def check_g_below_gdp(
@@ -250,6 +311,51 @@ def check_roic_convergence(
     )
 
 
+def check_reinvestment_bounds(
+    growth: float,
+    roic_new_investments: float,
+) -> CoherenceCheck:
+    """Check 7 — reinvestment rate ``h_T = g / ROIC_NI`` must lie in ``[0, 1]``.
+
+    Equivalent to requiring that the normalized FCFF at steady state be
+    non-negative (``FCFF = NOPAT·(1 - h_T)`` with ``h_T <= 1``) and the
+    growth rate be non-negative (``h_T >= 0``). A violation means the
+    business would need to reinvest more than 100% of its NOPAT to sustain
+    the declared growth — equivalent to saying that ``g > ROIC_NI`` (the
+    marginal investments are not profitable enough) and the TV is
+    economically meaningless.
+    """
+    if roic_new_investments <= 0:
+        return CoherenceCheck(
+            code="C7",
+            name="Reinvestment rate h_T in [0, 1]",
+            severity=Severity.ERROR,
+            message=f"ROIC_NI non positivo ({roic_new_investments:.4f}): h_T non definito",
+            detail={"roic_ni": roic_new_investments, "g": growth},
+        )
+    h = growth / roic_new_investments
+    if not 0.0 <= h <= 1.0:
+        return CoherenceCheck(
+            code="C7",
+            name="Reinvestment rate h_T in [0, 1]",
+            severity=Severity.ERROR,
+            message=(
+                f"h_T = g/ROIC_NI = {h:.4f} fuori da [0, 1] "
+                f"(g={growth:.4f}, ROIC_NI={roic_new_investments:.4f}). "
+                f"Se h_T > 1 il reinvestimento eccede il 100% del NOPAT; "
+                f"il FCFF normalizzato è negativo e il TV perde senso economico."
+            ),
+            detail={"h": h, "g": growth, "roic_ni": roic_new_investments},
+        )
+    return CoherenceCheck(
+        code="C7",
+        name="Reinvestment rate h_T in [0, 1]",
+        severity=Severity.PASS,
+        message=f"h_T = g/ROIC_NI = {h:.4f} entro [0, 1]",
+        detail={"h": h, "g": growth, "roic_ni": roic_new_investments},
+    )
+
+
 def check_bounds(
     wacc: float,
     growth: float,
@@ -317,5 +423,6 @@ def check_coherence(
         check_tv_weight(tv_weight),
         check_roic_convergence(roic_marginal_final, wacc),
         check_bounds(wacc, growth, nopat_t_plus_1, inflation),
+        check_reinvestment_bounds(growth, roic_new_investments),
     )
     return CoherenceReport(checks=checks)

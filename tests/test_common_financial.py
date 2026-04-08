@@ -86,3 +86,27 @@ def test_reinvestment_identity_roundtrip():
     h = reinvestment_rate(g, r)
     assert h == pytest.approx(0.20)
     assert implied_growth(r, h) == pytest.approx(g)
+
+
+def test_reinvestment_rate_rejects_h_above_one():
+    """P1.4: h > 1 means more than 100% of NOPAT is reinvested — insostenibile."""
+    with pytest.raises(ValueError, match=r"out of \[0, 1\]"):
+        reinvestment_rate(growth=0.03, roic_new_investments=0.02)
+
+
+def test_reinvestment_rate_accepts_boundaries():
+    # h == 1 exactly (g == ROIC) → no growth value creation
+    assert reinvestment_rate(0.10, 0.10) == pytest.approx(1.0)
+    # h == 0 exactly (g == 0)
+    assert reinvestment_rate(0.0, 0.15) == pytest.approx(0.0)
+
+
+def test_discount_factor_rejects_non_integer_t():
+    """P2.9: mid-year discounting is not supported; t must be int."""
+    with pytest.raises(ValueError, match="non-negative integer"):
+        discount_factor(0.08, 0.5)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="non-negative integer"):
+        discount_factor(0.08, -1)
+    # Booleans are technically int in Python but must be rejected
+    with pytest.raises(ValueError, match="non-negative integer"):
+        discount_factor(0.08, True)  # type: ignore[arg-type]

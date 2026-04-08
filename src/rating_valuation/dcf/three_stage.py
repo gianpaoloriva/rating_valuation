@@ -21,9 +21,16 @@ Reference: AIAF n. 66 (2008), Scarano/Di Napoli, pp. 30-32.
 
 from __future__ import annotations
 
+import warnings
+from collections.abc import Sequence
 from dataclasses import dataclass, field
+from statistics import median
 
 from rating_valuation.common.financial import discount_factor
+from rating_valuation.dcf.coherence import (
+    CoherenceReport,
+    check_coherence,
+)
 
 
 @dataclass(frozen=True)
@@ -38,14 +45,28 @@ class ThreeStageInputs:
     roic_marginal_start: float                  # ROIC_marginal entering stage 2
     growth_stage2: float                        # NOPAT growth during stage 2
 
+    # Optional base for the ROIC decay formula. When None, the fade rate is
+    # computed from ``roic_marginal_start`` (the value at the stage-1/stage-2
+    # boundary). When set, the fade rate starts from this value — matching
+    # the paper's convention (Scarano/Di Napoli p. 31) of using the MEDIAN
+    # marginal ROIC of stage 1 as the starting point, which yields a less
+    # aggressive decay than starting from the last-year ROIC.
+    roic_marginal_decay_base: float | None = None
+
     # Stage 3 — steady state --------------------------------------------------
     # (optional) allow a terminal growth even in the simplified formula;
-    # default is 0 meaning TV = NOPAT / wacc
+    # default is 0 meaning TV = NOPAT / wacc. Setting it > 0 contradicts the
+    # premise "ROIC = WACC → growth creates no value" and triggers a warning.
     terminal_growth: float = 0.0
 
     # Balance sheet bridge ----------------------------------------------------
     net_debt_today: float = 0.0
     excess_cash_today: float = 0.0
+
+    # Optional GDP cap for coherence check C1 (long-run g <= g_PIL). When
+    # None the C1 check is skipped (effectively g cap = +inf). Pass a macro
+    # value from `data/macro.csv` to enable automatic enforcement.
+    gdp_nominal_5y_avg: float | None = None
 
 
 @dataclass(frozen=True)
@@ -73,6 +94,12 @@ class ThreeStageResult:
     fade_rate: float                            # geometric decay applied per year
     flows: tuple[StageFlow, ...] = field(default_factory=tuple)
     inputs: ThreeStageInputs | None = None
+    # Automatically populated by value_three_stage — runs the 6+1 coherence
+    # checks from `dcf/coherence.py` using the inputs actually used for the
+    # valuation. The paper (Scarano/Di Napoli) insists that coherence
+    # validation must not be a separate, skippable step: here it is always
+    # there alongside the numbers.
+    coherence_report: CoherenceReport | None = None
 
     def as_dict(self) -> dict:
         return {
@@ -130,9 +157,81 @@ def compute_fade_rate(
     return (wacc / roic_start) ** (1.0 / n_years) - 1.0
 
 
+def median_roic_marginal_from_explicit(
+    nopat: Sequence[float],
+    nic: Sequence[float],
+) -> float:
+    """Median of the marginal ROIC over the explicit forecast period.
+
+    Computes ``ROIC_marginal_t = ΔNOPAT_t / ΔCIN_avg_t`` year by year
+    (Scarano/Di Napoli paper, Tabella 2 p. 30) and returns the median.
+
+    The paper uses this median as the starting point of the geometric decay
+    in the stage-2 convergence formula ``decay = (wacc / roic_median)^(1/n) − 1``.
+    Starting from the median is less sensitive to a single high-ROIC year
+    than starting from the last-year ROIC, and is what the paper's worked
+    example implicitly uses.
+
+    Parameters
+    ----------
+    nopat : sequence of float
+        NOPAT series of the explicit forecast, ordered by year.
+        At least 2 elements are required.
+    nic : sequence of float
+        Net Invested Capital series of the explicit forecast, ordered by year.
+        Must have the same length as ``nopat``.
+
+    Returns
+    -------
+    float
+        Median of the marginal ROICs computed over the explicit period.
+    """
+    nopat_list = list(nopat)
+    nic_list = list(nic)
+    if len(nopat_list) != len(nic_list):
+        raise ValueError("nopat and nic must have the same length")
+    if len(nopat_list) < 2:
+        raise ValueError("At least 2 years of NOPAT/NIC are required")
+
+    marginals: list[float] = []
+    for t in range(1, len(nopat_list)):
+        delta_nopat = nopat_list[t] - nopat_list[t - 1]
+        delta_nic = nic_list[t] - nic_list[t - 1]
+        if delta_nic <= 0:
+            # Skip years where NIC does not grow: the marginal ROIC is
+            # undefined or pathological (and the paper's table also drops them).
+            continue
+        marginals.append(delta_nopat / delta_nic)
+
+    if not marginals:
+        raise ValueError(
+            "Cannot compute marginal ROIC: NIC does not grow in any year"
+        )
+    return float(median(marginals))
+
+
 def value_three_stage(inputs: ThreeStageInputs) -> ThreeStageResult:
-    """Run the 3-stage DCF and return the full decomposition."""
+    """Run the 3-stage DCF and return the full decomposition.
+
+    Automatically attaches a :class:`CoherenceReport` to the result — the
+    Scarano/Di Napoli paper treats TV validation as an integral part of the
+    computation, not an optional step.
+    """
     _validate(inputs)
+
+    # Warn on the economic inconsistency of positive terminal growth in the
+    # steady-state stage: if ROIC == WACC, growth creates no value, and the
+    # formula NOPAT/(wacc - g_term) amplifies the TV through a growth that
+    # by construction is non-value-accretive.
+    if inputs.terminal_growth > 0.0:
+        warnings.warn(
+            f"value_three_stage: terminal_growth = {inputs.terminal_growth:.4f} > 0 "
+            f"with ROIC = WACC contraddice la premessa dello stadio 3 "
+            f"(la crescita non genera valore quando ROIC_NI = WACC). "
+            f"Usare terminal_growth = 0 — la crescita residua va modellata "
+            f"nello stadio 2 di convergenza.",
+            stacklevel=2,
+        )
 
     flows: list[StageFlow] = []
     # --- Stage 1: explicit forecast -----------------------------------------
@@ -158,15 +257,25 @@ def value_three_stage(inputs: ThreeStageInputs) -> ThreeStageResult:
     t1 = len(inputs.fcff_explicit)
 
     # --- Stage 2: convergence -----------------------------------------------
+    # If the caller provided an explicit decay base (e.g. the median
+    # marginal ROIC of stage 1, as in the paper's worked example), use it.
+    # Otherwise fall back on `roic_marginal_start` — the entry-point value,
+    # which matches the previous behavior and is retained for backward
+    # compatibility.
+    decay_base = (
+        inputs.roic_marginal_decay_base
+        if inputs.roic_marginal_decay_base is not None
+        else inputs.roic_marginal_start
+    )
     fade = compute_fade_rate(
-        roic_start=inputs.roic_marginal_start,
+        roic_start=decay_base,
         wacc=inputs.wacc,
         n_years=inputs.n_convergence_years,
     )
 
     convergence_pv = 0.0
     current_nopat = inputs.nopat_at_t1
-    current_roic = inputs.roic_marginal_start
+    current_roic = decay_base
     g2 = inputs.growth_stage2
 
     for step in range(1, inputs.n_convergence_years + 1):
@@ -226,6 +335,32 @@ def value_three_stage(inputs: ThreeStageInputs) -> ThreeStageResult:
     ev = explicit_pv + convergence_pv + tv_pv
     tv_weight = tv_pv / ev if ev > 0 else float("nan")
 
+    # --- Automatic coherence check ------------------------------------------
+    # The 3-stage model satisfies the reinvestment identity by construction
+    # (we compute h from ROIC/g) and uses the steady-state formula for the
+    # TV (ROIC = WACC ⇒ shortcut NOPAT/wacc). We nevertheless run the
+    # full validator so that pathological inputs (e.g. g > g_PIL, TV weight
+    # too high, ROIC final not converged) are surfaced without the caller
+    # having to remember to invoke check_coherence() separately.
+    gdp_cap = (
+        inputs.gdp_nominal_5y_avg
+        if inputs.gdp_nominal_5y_avg is not None
+        else float("inf")
+    )
+    coherence_report = check_coherence(
+        wacc=inputs.wacc,
+        growth=inputs.terminal_growth,
+        roic_new_investments=inputs.wacc,  # stage 3 premise: ROIC_NI = WACC
+        implied_reinvestment=(
+            inputs.terminal_growth / inputs.wacc if inputs.wacc > 0 else 0.0
+        ),
+        tv_weight=tv_weight,
+        roic_marginal_final=current_roic,
+        nopat_t_plus_1=terminal_nopat,
+        gdp_nominal_5y_avg=gdp_cap,
+        used_coherent_formula=True,
+    )
+
     return ThreeStageResult(
         explicit_pv=explicit_pv,
         convergence_pv=convergence_pv,
@@ -237,4 +372,5 @@ def value_three_stage(inputs: ThreeStageInputs) -> ThreeStageResult:
         fade_rate=fade,
         flows=tuple(flows),
         inputs=inputs,
+        coherence_report=coherence_report,
     )

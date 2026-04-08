@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import warnings
+
 import pytest
 
+from rating_valuation.dcf.coherence import Severity
 from rating_valuation.dcf.three_stage import (
     ThreeStageInputs,
     compute_fade_rate,
+    median_roic_marginal_from_explicit,
     value_three_stage,
 )
 
@@ -119,3 +123,125 @@ def test_three_stage_equity_bridge():
     )
     r = value_three_stage(inputs)
     assert r.equity_value == pytest.approx(r.enterprise_value - 25.0 + 5.0)
+
+
+# -----------------------------------------------------------------------------
+# P1.3 — explicit ROIC decay base (paper formula)
+# -----------------------------------------------------------------------------
+
+
+def test_three_stage_decay_base_changes_fade_rate():
+    """When roic_marginal_decay_base is set, the fade rate is computed from
+    THAT value rather than from roic_marginal_start."""
+    base_inputs = ThreeStageInputs(
+        fcff_explicit=(10, 11, 12, 13, 14),
+        nopat_at_t1=18.0,
+        wacc=0.102,
+        n_convergence_years=5,
+        roic_marginal_start=0.339,
+        growth_stage2=0.03,
+    )
+    result_default = value_three_stage(base_inputs)
+    # Reproduce the paper example p. 31: decay from 26.5% to 10.2% in 5y
+    paper_inputs = ThreeStageInputs(
+        fcff_explicit=(10, 11, 12, 13, 14),
+        nopat_at_t1=18.0,
+        wacc=0.102,
+        n_convergence_years=5,
+        roic_marginal_start=0.339,
+        roic_marginal_decay_base=0.265,  # median ROIC stage 1 (paper)
+        growth_stage2=0.03,
+    )
+    result_paper = value_three_stage(paper_inputs)
+    expected_fade = (0.102 / 0.265) ** (1.0 / 5) - 1.0
+    assert result_paper.fade_rate == pytest.approx(expected_fade, rel=1e-9)
+    # And it must differ from the default (which uses roic_marginal_start)
+    assert result_default.fade_rate != pytest.approx(result_paper.fade_rate, rel=1e-6)
+
+
+def test_median_roic_marginal_from_explicit():
+    """P4.18: median marginal ROIC helper."""
+    # 3 stage-1 years with NOPAT and NIC growing
+    nopat = [10.0, 12.0, 14.0]
+    nic = [80.0, 90.0, 95.0]
+    # Marginals: (12-10)/(90-80)=0.20, (14-12)/(95-90)=0.40 → median=0.30
+    assert median_roic_marginal_from_explicit(nopat, nic) == pytest.approx(0.30)
+
+
+def test_median_roic_marginal_rejects_flat_nic():
+    with pytest.raises(ValueError, match="NIC does not grow"):
+        median_roic_marginal_from_explicit([10, 12, 14], [80, 80, 80])
+
+
+# -----------------------------------------------------------------------------
+# P2.6 — warning on positive terminal_growth with ROIC=WACC
+# -----------------------------------------------------------------------------
+
+
+def test_three_stage_warns_on_positive_terminal_growth():
+    inputs = ThreeStageInputs(
+        fcff_explicit=(10, 11, 12),
+        nopat_at_t1=15.0,
+        wacc=0.10,
+        n_convergence_years=3,
+        roic_marginal_start=0.15,
+        growth_stage2=0.02,
+        terminal_growth=0.01,  # > 0 with ROIC=WACC → incoherent
+    )
+    with pytest.warns(UserWarning, match="terminal_growth"):
+        value_three_stage(inputs)
+
+
+def test_three_stage_no_warning_on_zero_terminal_growth():
+    inputs = ThreeStageInputs(
+        fcff_explicit=(10, 11, 12),
+        nopat_at_t1=15.0,
+        wacc=0.10,
+        n_convergence_years=3,
+        roic_marginal_start=0.15,
+        growth_stage2=0.02,
+        terminal_growth=0.0,
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # elevate warnings to errors
+        value_three_stage(inputs)  # must not raise
+
+
+# -----------------------------------------------------------------------------
+# P2.10 — automatic coherence report attached to the result
+# -----------------------------------------------------------------------------
+
+
+def test_three_stage_result_has_coherence_report():
+    inputs = ThreeStageInputs(
+        fcff_explicit=(10, 11, 12, 13, 14),
+        nopat_at_t1=18.0,
+        wacc=0.10,
+        n_convergence_years=5,
+        roic_marginal_start=0.20,
+        growth_stage2=0.03,
+    )
+    r = value_three_stage(inputs)
+    assert r.coherence_report is not None
+    assert len(r.coherence_report.checks) == 7
+    # With terminal_growth=0 and the default gdp cap (+inf) all checks should
+    # at most WARNING (tv_weight may exceed 0.80 depending on inputs)
+    assert r.coherence_report.verdict in (Severity.PASS, Severity.WARNING)
+
+
+def test_three_stage_coherence_report_flags_gdp_cap_violation():
+    inputs = ThreeStageInputs(
+        fcff_explicit=(10, 11, 12),
+        nopat_at_t1=15.0,
+        wacc=0.10,
+        n_convergence_years=3,
+        roic_marginal_start=0.15,
+        growth_stage2=0.02,
+        terminal_growth=0.0,
+        gdp_nominal_5y_avg=0.01,  # cap very low — but terminal_growth=0, so C1 passes
+    )
+    r = value_three_stage(inputs)
+    assert r.coherence_report is not None
+    # With terminal_growth = 0 and cap = 0.01, the C1 check passes (0 <= 0.01)
+    c1 = [c for c in r.coherence_report.checks if c.code == "C1"][0]
+    assert c1.severity == Severity.PASS

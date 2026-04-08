@@ -193,3 +193,61 @@ def test_bms_timeseries_revenues_grow_over_time(companies: pd.DataFrame):
     rev_24 = series[2024].average_revenues
     # Peer sample grows ~4.5% per year → 2024 strictly > 2022
     assert rev_24 > rev_22
+
+
+# -----------------------------------------------------------------------------
+# P2.8 — BMSBuilder auto-excludes rows with is_target==1
+# -----------------------------------------------------------------------------
+
+
+def test_builder_warns_and_excludes_target_rows(companies: pd.DataFrame):
+    sector = companies[
+        (companies["gics_sub_industry"] == "Industrial Machinery")
+        & (companies["fiscal_year"] == 2024)
+    ]
+    # sector contains both peers and the target
+    assert (sector["is_target"] == 1).any()
+    with pytest.warns(UserWarning, match="is_target"):
+        result = BMSBuilder(sector).build()
+    # The target must not appear in the final sample ids
+    target_ids = sector.loc[sector["is_target"] == 1, "company_id"].tolist()
+    for tid in target_ids:
+        assert tid not in result.sample_ids
+
+
+# -----------------------------------------------------------------------------
+# P4.19 — outlier_sigma screening
+# -----------------------------------------------------------------------------
+
+
+def test_builder_outlier_sigma_removes_extreme_peers(peers_2024: pd.DataFrame):
+    # A very tight sigma should kick at least one peer out
+    result = BMSBuilder(peers_2024, outlier_sigma=1.0).build()
+    assert result.n_companies < len(peers_2024)
+    assert len(result.excluded_as_outliers) >= 1
+
+
+def test_builder_outlier_sigma_none_keeps_all(peers_2024: pd.DataFrame):
+    result = BMSBuilder(peers_2024, outlier_sigma=None).build()
+    assert result.n_companies == len(peers_2024)
+    assert result.excluded_as_outliers == ()
+
+
+# -----------------------------------------------------------------------------
+# P4.20 — robust statistics (median + percentiles) in BMSResult
+# -----------------------------------------------------------------------------
+
+
+def test_bms_result_exposes_median_and_percentiles(peers_2024: pd.DataFrame):
+    result = BMSBuilder(peers_2024).build()
+    # Series indexed on items, same shape as the mean shares
+    assert list(result.income_statement_shares_median.index) == list(INCOME_STATEMENT_ITEMS)
+    assert list(result.balance_sheet_shares_median.index) == list(BALANCE_SHEET_ITEMS)
+    # Median of normalized revenues is 1.0 (rev/rev=1 for every peer)
+    assert result.income_statement_shares_median["revenues"] == pytest.approx(1.0)
+    # P25 <= Median <= P75 for any item with strictly positive variance
+    for item in INCOME_STATEMENT_ITEMS:
+        p25 = result.income_statement_shares_p25[item]
+        med = result.income_statement_shares_median[item]
+        p75 = result.income_statement_shares_p75[item]
+        assert p25 <= med <= p75

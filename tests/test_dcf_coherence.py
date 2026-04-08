@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import pandas as pd
+
 from rating_valuation.dcf.coherence import (
     CoherenceCheck,
     Severity,
     check_bounds,
     check_coherence,
     check_g_below_gdp,
+    check_g_below_gdp_from_macro,
+    check_reinvestment_bounds,
     check_reinvestment_identity,
     check_roic_convergence,
     check_tv_formula_used,
@@ -111,7 +115,7 @@ def test_full_report_all_pass():
     assert report.verdict == Severity.PASS
     assert len(report.errors()) == 0
     assert len(report.warnings()) == 0
-    assert len(report.checks) == 6
+    assert len(report.checks) == 7  # now includes C7 reinvestment bounds
 
 
 def test_full_report_with_errors():
@@ -132,7 +136,8 @@ def test_full_report_with_errors():
     assert len(report.warnings()) >= 1
 
 
-def test_coherence_check_as_table_has_six_rows():
+def test_coherence_check_as_table_has_seven_rows():
+    """After P1.4, check C7 (reinvestment bounds) is always part of the report."""
     report = check_coherence(
         wacc=0.10,
         growth=0.02,
@@ -145,5 +150,72 @@ def test_coherence_check_as_table_has_six_rows():
         used_coherent_formula=True,
     )
     table = report.as_table()
-    assert len(table) == 6
-    assert {row["code"] for row in table} == {"C1", "C2", "C3", "C4", "C5", "C6"}
+    assert len(table) == 7
+    assert {row["code"] for row in table} == {
+        "C1", "C2", "C3", "C4", "C5", "C6", "C7",
+    }
+
+
+# -----------------------------------------------------------------------------
+# P1.4 — check_reinvestment_bounds (C7)
+# -----------------------------------------------------------------------------
+
+
+def test_reinvestment_bounds_pass():
+    c = check_reinvestment_bounds(growth=0.03, roic_new_investments=0.15)
+    assert c.severity == Severity.PASS
+    assert c.code == "C7"
+
+
+def test_reinvestment_bounds_error_h_above_one():
+    c = check_reinvestment_bounds(growth=0.05, roic_new_investments=0.04)
+    assert c.severity == Severity.ERROR
+    assert "[0, 1]" in c.message
+
+
+def test_reinvestment_bounds_error_roic_non_positive():
+    c = check_reinvestment_bounds(growth=0.03, roic_new_investments=0.0)
+    assert c.severity == Severity.ERROR
+
+
+def test_reinvestment_bounds_boundary_values():
+    # h = 1 exactly (g = ROIC_NI) → PASS (degenerate but algebraically OK)
+    assert check_reinvestment_bounds(0.10, 0.10).severity == Severity.PASS
+    # h = 0 exactly (g = 0)
+    assert check_reinvestment_bounds(0.0, 0.15).severity == Severity.PASS
+
+
+# -----------------------------------------------------------------------------
+# P2.5 — check_g_below_gdp_from_macro (automatic lookup)
+# -----------------------------------------------------------------------------
+
+
+def test_check_g_below_gdp_from_macro_pass():
+    macro = pd.DataFrame(
+        [
+            {"country": "IT", "year": 2024, "gdp_nominal_growth_5y_avg": 0.040},
+        ]
+    )
+    c = check_g_below_gdp_from_macro(growth=0.02, country="IT", year=2024, macro_df=macro)
+    assert c.severity == Severity.PASS
+
+
+def test_check_g_below_gdp_from_macro_error_above_cap():
+    macro = pd.DataFrame(
+        [
+            {"country": "IT", "year": 2024, "gdp_nominal_growth_5y_avg": 0.020},
+        ]
+    )
+    c = check_g_below_gdp_from_macro(growth=0.05, country="IT", year=2024, macro_df=macro)
+    assert c.severity == Severity.ERROR
+
+
+def test_check_g_below_gdp_from_macro_missing_row():
+    macro = pd.DataFrame(
+        [
+            {"country": "DE", "year": 2024, "gdp_nominal_growth_5y_avg": 0.020},
+        ]
+    )
+    c = check_g_below_gdp_from_macro(growth=0.03, country="IT", year=2024, macro_df=macro)
+    assert c.severity == Severity.ERROR
+    assert "Nessun record" in c.message

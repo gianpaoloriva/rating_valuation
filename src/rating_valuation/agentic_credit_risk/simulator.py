@@ -12,6 +12,16 @@ typical workflow:
        the diagnostic matrices and the implied rating (via the master scale).
 
 Vectorized across trials using numpy.
+
+Appendix A extensions (all opt-in via ``InitialState`` and ``run()``
+parameters, default values reproduce the original "reduced model"
+behavior):
+
+    * Interest Tax Shield in the TV — ``TV = NOPAT_T/k + τ·INT_T``
+    * Interest on excess cash at ``cash_yield``
+    * Stochastic tax rate normalization in ``[0.7, 1.5] × τ_nominal``
+    * Dividend payout ratio
+    * Debt floor (minimum target leverage)
 """
 
 from __future__ import annotations
@@ -54,6 +64,12 @@ class InitialState:
     cost_of_debt: float
     wacc: float                      # pre-tax WACC used to discount OCFs
 
+    # --- Appendix A extensions (all default to neutral values) --------------
+    cash_yield: float = 0.0          # yield on CASH_{t-1} (paper: risk-free)
+    payout_ratio: float = 0.0        # dividend fraction of after-tax profit
+    debt_floor: float = 0.0          # minimum debt stock per period (eq. [8])
+    tax_stochastic: bool = False     # sample τ ∈ [0.7, 1.5]·τ_nominal per trial
+
 
 # -----------------------------------------------------------------------------
 # Result container
@@ -76,6 +92,7 @@ class AgenticCreditRiskResult:
     debt: np.ndarray | None = None
     cash_matrix: np.ndarray | None = None
     ev: np.ndarray | None = None
+    interest: np.ndarray | None = None      # INT per trial/year, used for TV ITS
 
     def summary(self) -> dict:
         out = self.metrics.summary()
@@ -297,8 +314,24 @@ class AgenticCreditRiskSimulator:
         debt_mat = np.zeros((n_trials, n_years))
         cash_mat = np.zeros((n_trials, n_years))
         nic_mat = np.zeros((n_trials, n_years))
+        interest_mat = np.zeros((n_trials, n_years))
 
         init = self.initial_state
+
+        # Tax rate: constant or stochastic per trial (Appendix A: "effective
+        # tax rate normalized within a range given by 70% and 150% of the
+        # nominal rate"). Sampled once per trial (kept fixed across years
+        # for simplicity — the paper does not require an autocorrelation).
+        if init.tax_stochastic:
+            rng = np.random.default_rng(seed if seed is None else seed + 1)
+            tax_vector = rng.uniform(
+                0.70 * init.tax_rate, 1.50 * init.tax_rate, size=n_trials
+            )
+            # Clip at the mathematical range permitted by the debt solver.
+            tax_vector = np.clip(tax_vector, 0.0, 0.99)
+        else:
+            tax_vector = np.full(n_trials, init.tax_rate)
+
         rev_prev = np.full(n_trials, init.revenues)
         nic_prev = np.full(n_trials, init.net_invested_capital)
         debt_prev = np.full(n_trials, init.gross_debt)
@@ -314,20 +347,24 @@ class AgenticCreditRiskSimulator:
             ebitda_t = rev_t * margin
             da_t = rev_t * init.da_ratio
             ebit_t = ebitda_t - da_t
-            nopat_t = ebit_t * (1.0 - init.tax_rate)
+            nopat_t = ebit_t * (1.0 - tax_vector)
 
             nic_t = (f + w) * rev_t
             delta_nic = nic_t - nic_prev
 
             # Full-period update: debt, cash, interest, OCF (eq. [3-6])
-            debt_t, cash_t, _int_t, ocf_t = simulate_period_vectorized(
+            # with Appendix A extensions (cash yield, dividends, debt floor)
+            debt_t, cash_t, int_t, ocf_t = simulate_period_vectorized(
                 debt_prev=debt_prev,
                 cash_prev=cash_prev,
                 nopat=nopat_t,
                 delta_nic=delta_nic,
                 capital_increase=0.0,
                 cost_of_debt=init.cost_of_debt,
-                tax_rate=init.tax_rate,
+                tax_rate=tax_vector,
+                cash_yield=init.cash_yield,
+                payout_ratio=init.payout_ratio,
+                debt_floor=init.debt_floor,
             )
 
             nopat_mat[:, t] = nopat_t
@@ -335,6 +372,7 @@ class AgenticCreditRiskSimulator:
             debt_mat[:, t] = debt_t
             cash_mat[:, t] = cash_t
             nic_mat[:, t] = nic_t
+            interest_mat[:, t] = int_t
 
             rev_prev = rev_t
             nic_prev = nic_t
@@ -342,11 +380,17 @@ class AgenticCreditRiskSimulator:
             cash_prev = cash_t
 
         # --- EV at each period: discounted future OCFs + TV perpetuity --
+        # Terminal value (Appendix A):
+        #     TV = NOPAT_T / k + τ · INT_T
+        # The Interest Tax Shield of the last explicit year is included,
+        # which for leveraged companies can be a material component of the
+        # TV (omitting it systematically inflates the PD).
         wacc = init.wacc
         if wacc <= 0:
             raise ValueError(f"WACC must be positive, got {wacc}")
 
         ev_mat = np.zeros((n_trials, n_years))
+        its_last = tax_vector * interest_mat[:, -1]  # τ·INT_T, shape (n_trials,)
         for t in range(n_years):
             # Future OCFs from t+1 to T
             ev = np.zeros(n_trials)
@@ -354,9 +398,9 @@ class AgenticCreditRiskSimulator:
                 if future - 1 < n_years:
                     periods = future - t
                     ev += ocf_mat[:, future - 1] / (1.0 + wacc) ** periods
-            # Terminal value = perpetuity of last year NOPAT
+            # Terminal value = perpetuity of last year NOPAT + ITS of last year
             periods_to_tv = n_years - t
-            tv = nopat_mat[:, -1] / wacc
+            tv = nopat_mat[:, -1] / wacc + its_last
             ev += tv / (1.0 + wacc) ** periods_to_tv
             ev_mat[:, t] = ev
 
@@ -366,7 +410,12 @@ class AgenticCreditRiskSimulator:
         implied_rating = None
         if map_rating:
             lookup = RatingLookup.from_csv()
-            implied_rating = lookup.rating_of_pd(float(metrics.cumulative_pd[-1]))
+            # Use log-linear interpolation (paper Appendix A: "exponential
+            # interpolation") and format as a compact label
+            # "lower/upper (frac)" so the rating is not quantized on slots.
+            pd_cum = float(metrics.cumulative_pd[-1])
+            lo, hi, frac = lookup.rating_of_pd_interpolated(pd_cum)
+            implied_rating = lo if lo == hi else f"{lo}/{hi} ({frac:.2f})"
 
         result = AgenticCreditRiskResult(
             initial_state=init,
@@ -383,4 +432,5 @@ class AgenticCreditRiskSimulator:
             result.debt = debt_mat
             result.cash_matrix = cash_mat
             result.ev = ev_mat
+            result.interest = interest_mat
         return result

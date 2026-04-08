@@ -86,13 +86,26 @@ def compute_metrics(
     ev: np.ndarray,         # shape (n_trials, n_years) — EV at each period
     debt: np.ndarray,       # shape (n_trials, n_years) — end-of-period debt
     cash: np.ndarray,       # shape (n_trials, n_years) — excess cash at period end
+    collateral_coverage: float = 0.0,
 ) -> CreditMetrics:
     """Aggregate EV / debt / cash matrices into credit metrics.
 
     Default condition (Agentic Credit Risk eq. [13]):  ``EV_t < D_t - CASH_t``
+
+    Parameters
+    ----------
+    collateral_coverage : float
+        Share of the EAD covered by secured / senior collateral. Applied to
+        the LGD calculation (paper Section 3 final paragraph — seniority
+        waterfall): ``LGD = max(0, EAD·(1 − collateral_coverage) − EV − CASH)``.
+        Default 0 reproduces the previous unsecured behavior.
     """
     if ev.shape != debt.shape or ev.shape != cash.shape:
         raise ValueError("ev, debt, cash must share the same shape")
+    if not 0.0 <= collateral_coverage <= 1.0:
+        raise ValueError(
+            f"collateral_coverage must be in [0, 1], got {collateral_coverage}"
+        )
     n_trials, n_years = ev.shape
 
     default_matrix = ev < (debt - cash)  # shape (n_trials, n_years)
@@ -147,7 +160,10 @@ def compute_metrics(
     ev_at_default = ev[default_trials, first_periods]
     cash_at_default = cash[default_trials, first_periods]
 
-    lgd = np.maximum(0.0, ead_at_default - ev_at_default - cash_at_default)
+    # Exposure at default net of the collateral coverage — senior/secured
+    # portion of the debt is recovered before the LGD waterfall kicks in.
+    unsecured_ead = ead_at_default * (1.0 - collateral_coverage)
+    lgd = np.maximum(0.0, unsecured_ead - ev_at_default - cash_at_default)
     recovery = 1.0 - lgd / np.maximum(ead_at_default, 1e-12)
 
     lgd_mean = float(lgd.mean())
