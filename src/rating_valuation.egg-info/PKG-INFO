@@ -1,0 +1,77 @@
+Metadata-Version: 2.4
+Name: rating-valuation
+Version: 0.1.0
+Summary: Suite for SME valuation (BMS, DCF, TV coherence) and forward-looking credit risk (RAPD)
+Author: Gianpaolo Riva
+License: Proprietary
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: pandas>=2.0
+Requires-Dist: numpy>=1.24
+Requires-Dist: scipy>=1.10
+Provides-Extra: app
+Requires-Dist: streamlit>=1.30; extra == "app"
+Requires-Dist: plotly>=5.18; extra == "app"
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4; extra == "dev"
+Requires-Dist: pytest-cov>=4.1; extra == "dev"
+Requires-Dist: ruff>=0.3; extra == "dev"
+
+# Rating & Valuation Suite
+
+Strumenti di **valutazione d'impresa** e **credit risk forward-looking** per PMI, basati su tre paper di riferimento:
+
+1. **BMS — Bilancio Medio Standardizzato** (Scarano/Brughera, AIAF n. 65, 2008)
+2. **Terminal Value coerente** (Scarano/Di Napoli, AIAF n. 66, 2008)
+3. **RAPD — Risk Analysis Probability of Default** (Montesi/Papiro, 2014)
+
+Vedi `overview.md` per la sintesi completa dei tre lavori e delle formule.
+
+## Struttura
+
+```
+rating_valuation/
+├── overview.md                    sintesi dei 3 paper + proposta strumenti
+├── data/                          dataset CSV normalizzati (vedi data/schema.md)
+├── src/rating_valuation/          libreria Python (common, bms, dcf, rapd, rating)
+├── app/                           dashboard Streamlit multi-page
+├── tests/                         pytest test suite
+└── .claude/agents/                subagent specializzati (bms-analyst, dcf-validator, ...)
+```
+
+## Quickstart
+
+```bash
+# install in editable mode (dev)
+pip install -e ".[dev]"
+
+# generate fake dataset (se non già presente)
+python3 data/generators/seed_companies.py
+
+# run tests
+pytest
+
+# launch dashboard (richiede extras 'app')
+pip install -e ".[app]"
+streamlit run app/streamlit_app.py
+```
+
+## Stato di sviluppo
+
+- [x] Fondamenta dati (schema + fake dataset + macro + master scale)
+- [ ] Common utilities (data_loader, financial, invariants)
+- [ ] BMS Builder (Tool A)
+- [ ] DCF Engine 2/3 stadi + Terminal Value coherence check (Tool B)
+- [ ] Differential Analyzer target vs IMS (Tool C)
+- [ ] RAPD Monte Carlo simulator (Tool D)
+- [ ] Rating Mapper (Tool E)
+- [ ] Streamlit dashboard multi-page
+- [ ] Claude Code subagent (bms-analyst, dcf-validator, rapd-simulator, data-curator, valuation-reporter, backtest-analyst)
+
+## Dataset fake di riferimento
+
+`data/companies.csv` contiene 16 aziende × 3 anni (2022–2024) del settore **Industrial Machinery** italiano:
+- 15 peer di settore (per il BMS)
+- 1 target: **Riva Meccanica SpA** (`company_id = riva_meccanica`)
+
+Il target è costruito per essere "sopra la media" (margine 17% vs ~14% di settore, crescita 7% vs ~4.5%, leva 34% vs ~41%), in modo da produrre un'analisi differenziale interessante.

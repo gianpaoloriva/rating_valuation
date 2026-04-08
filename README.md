@@ -1,0 +1,76 @@
+# Rating & Valuation Suite
+
+Strumenti di **valutazione d'impresa** e **credit risk forward-looking** per PMI, basati su tre paper di riferimento:
+
+1. **BMS — Bilancio Medio Standardizzato** (Scarano/Brughera, AIAF n. 65, 2008)
+2. **Terminal Value coerente** (Scarano/Di Napoli, AIAF n. 66, 2008)
+3. **RAPD — Risk Analysis Probability of Default** (Montesi/Papiro, 2014)
+
+Vedi `overview.md` per la sintesi completa dei tre lavori e delle formule.
+
+## Struttura
+
+```
+rating_valuation/
+├── overview.md                    sintesi dei 3 paper + proposta strumenti
+├── data/                          dataset CSV normalizzati (vedi data/schema.md)
+├── src/rating_valuation/          libreria Python (common, bms, dcf, rapd, rating)
+├── app/                           dashboard Streamlit multi-page
+├── tests/                         pytest test suite
+└── .claude/agents/                subagent specializzati (bms-analyst, dcf-validator, ...)
+```
+
+## Quickstart
+
+### Locale (Python)
+
+```bash
+# install in editable mode (dev)
+pip install -e ".[dev]"
+
+# generate fake dataset (se non già presente)
+python3 data/generators/seed_companies.py
+
+# run tests
+pytest
+
+# launch dashboard (richiede extras 'app': streamlit + plotly)
+pip install -e ".[app]"
+streamlit run app/streamlit_app.py
+```
+
+### Docker
+
+```bash
+# Build + run
+docker compose up --build
+
+# Poi apri http://localhost:8501
+```
+
+Il Dockerfile è basato su `python:3.11-slim`, installa deps via `pyproject.toml[app]`,
+gira Streamlit come non-root e include healthcheck su `/_stcore/health`.
+
+## Stato di sviluppo
+
+- [x] Fondamenta dati (schema + fake dataset + macro + master scale)
+- [x] Common utilities (data_loader, financial, invariants)
+- [x] BMS Builder (Tool A)
+- [x] DCF Engine 2/3 stadi + Terminal Value coherence check (Tool B)
+- [x] Differential Analyzer target vs IMS (Tool C)
+- [x] RAPD Monte Carlo simulator con **cash dinamico eq. [6]** (Tool D)
+- [x] Rating Mapper (Tool E)
+- [x] Backtest Comparator RAPD vs Altman Z'' con AUROC / Gini / KS (Tool F)
+- [x] Claude Code subagent (bms-analyst, dcf-validator, rapd-simulator, data-curator, valuation-reporter, backtest-analyst)
+- [x] Streamlit dashboard multi-page (Home + 6 pagine)
+- [x] Dockerfile + docker-compose
+
+Test suite: **152 test** passati in <1s.
+
+## Dataset fake di riferimento
+
+`data/companies.csv` contiene 16 aziende × 3 anni (2022–2024) del settore **Industrial Machinery** italiano:
+- 15 peer di settore (per il BMS)
+- 1 target: **Riva Meccanica SpA** (`company_id = riva_meccanica`)
+
+Il target è costruito per essere "sopra la media" (margine 17% vs ~14% di settore, crescita 7% vs ~4.5%, leva 34% vs ~41%), in modo da produrre un'analisi differenziale interessante.

@@ -1,0 +1,38 @@
+# -----------------------------------------------------------------------------
+# Rating & Valuation Suite — docker-compose orchestration
+# -----------------------------------------------------------------------------
+# Quick start:
+#     docker compose up --build
+# Then open http://localhost:8501
+#
+# Stop:
+#     docker compose down
+#
+# Dev mode with live reload (code changes propagate into the container):
+#     DEV_MOUNT=1 docker compose up
+# -----------------------------------------------------------------------------
+
+services:
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: rating-valuation:latest
+    container_name: rating-valuation-streamlit
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    environment:
+      STREAMLIT_SERVER_PORT: "8501"
+      STREAMLIT_SERVER_ADDRESS: "0.0.0.0"
+      STREAMLIT_SERVER_HEADLESS: "true"
+      STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"
+    volumes:
+      # Mount data read-only so edits to CSVs are picked up without rebuild
+      - ./data:/app/data:ro
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s

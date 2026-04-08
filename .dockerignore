@@ -1,0 +1,48 @@
+# VCS
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
+.eggs
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+dist
+build
+
+# Virtual envs
+.venv
+venv
+env
+
+# Editor
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+
+# Claude Code state (agents definitions are copied explicitly via src tree if needed)
+.claude/settings.local.json
+
+# PDFs (source papers, not needed at runtime)
+*.pdf
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Misc
+*.log
+.env
+.env.local
