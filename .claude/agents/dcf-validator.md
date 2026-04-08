@@ -78,7 +78,7 @@ When invoked:
 
 - For building the BMS used as input to the DCF, hand off to `bms-analyst`.
 - For wrapping the results in a professional Italian report, hand off to `valuation-reporter`.
-- For estimating credit risk based on the DCF cash flows, hand off to `rapd-simulator`.
+- For estimating credit risk based on the DCF cash flows, hand off to `agentic-credit-risk-simulator`.
 
 ## Output style
 

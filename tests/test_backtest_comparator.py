@@ -83,7 +83,7 @@ def test_runner_produces_results_for_every_row(bundle):
     assert isinstance(result, BacktestResult)
     assert len(result.rows) == 3
     for row in result.rows:
-        assert 0.0 <= row.rapd_pd <= 1.0
+        assert 0.0 <= row.acr_pd <= 1.0
         assert 0.0 <= row.altman_pd <= 1.0
         assert row.altman_rating != "N/A"
 
@@ -116,7 +116,7 @@ def test_runner_metrics_table_shape(bundle):
     )
     result = runner.run(sample, defaulted_ids=defaulted, seed=1)
     metrics = result.metrics_table()
-    assert set(metrics["model"]) == {"RAPD", "Altman Z''"}
+    assert set(metrics["model"]) == {"Agentic Credit Risk", "Altman Z''"}
     expected_cols = {
         "model", "auroc", "gini", "ks",
         "mean_pd_defaulted", "mean_pd_performing",

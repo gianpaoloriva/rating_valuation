@@ -5,7 +5,7 @@ Runs the entire suite on the target company:
     1. BMS Industrial Machinery FY2024 (15 peers)
     2. Differential analysis target vs BMS
     3. DCF two-stage + coherence check (simple projection from BMS data)
-    4. RAPD Monte Carlo with 5 000 trials over 3 years
+    4. Agentic Credit Risk Monte Carlo with 5 000 trials over 3 years
     5. Rating assignment via master scale
 
 Run:
@@ -28,8 +28,8 @@ from rating_valuation.dcf import (
     check_coherence,
     value_two_stage_coherent,
 )
+from rating_valuation.agentic_credit_risk import AgenticCreditRiskSimulator
 from rating_valuation.differential import DifferentialAnalyzer
-from rating_valuation.rapd import RAPDSimulator
 from rating_valuation.rating import RatingLookup
 
 
@@ -158,24 +158,24 @@ def main() -> None:
     print(f"\nVerdict: {report.verdict.value}")
 
     # -------------------------------------------------------------------
-    # 4. RAPD stochastic simulation
+    # 4. Agentic Credit Risk stochastic simulation
     # -------------------------------------------------------------------
-    _section("4. RAPD Monte Carlo (5 000 trials, 3 anni)")
-    sim = RAPDSimulator.from_company(
+    _section("4. Agentic Credit Risk Monte Carlo (5 000 trials, 3 anni)")
+    sim = AgenticCreditRiskSimulator.from_company(
         target, bundle.sectors, bundle.macro,
         n_trials=5_000, n_years=3,
     )
-    print(f"Pre-tax WACC (RAPD):           {sim.initial_state.wacc*100:>11.2f}%")
+    print(f"Pre-tax WACC:                  {sim.initial_state.wacc*100:>11.2f}%")
     print(f"NIC iniziale:                  {sim.initial_state.net_invested_capital:>12,.2f} EUR M")
     print(f"Debito iniziale:               {sim.initial_state.gross_debt:>12,.2f} EUR M")
     print(f"Cash iniziale:                 {sim.initial_state.cash:>12,.2f} EUR M")
     print(f"D&A / Fatturato:               {sim.initial_state.da_ratio*100:>11.2f}%")
     print()
 
-    rapd_result = sim.run(seed=42)
-    rapd_df = rapd_result.as_dataframe()
+    acr_result = sim.run(seed=42)
+    acr_df = acr_result.as_dataframe()
     print("Evoluzione PD sull'orizzonte:")
-    for _, row in rapd_df.iterrows():
+    for _, row in acr_df.iterrows():
         print(
             f"  Anno {int(row['year_ahead'])}:"
             f"  YearlyFreq={row['yearly_default_frequency']*100:>6.2f}%"
@@ -184,7 +184,7 @@ def main() -> None:
         )
     print()
 
-    m = rapd_result.metrics
+    m = acr_result.metrics
     print(f"Scenari di default:            {m.n_default_scenarios} / {sim.n_trials}")
     print(f"PD cumulata 3y:                {m.cumulative_pd[-1]*100:>11.2f}%")
     print(f"LGD media (€M):                {m.lgd_mean:>12,.2f}")
@@ -200,7 +200,7 @@ def main() -> None:
     # -------------------------------------------------------------------
     _section("5. Rating implicito")
     lookup = RatingLookup.from_csv()
-    rating = rapd_result.implied_rating
+    rating = acr_result.implied_rating
     bracket = lookup.rating_of_pd_interpolated(float(m.cumulative_pd[-1]))
     print(f"PD cumulata 3y:                {m.cumulative_pd[-1]*100:.4f}%")
     print(f"Rating implicito:              {rating}")

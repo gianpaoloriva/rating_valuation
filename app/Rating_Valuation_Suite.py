@@ -1,7 +1,11 @@
 """Rating & Valuation Suite — Streamlit home page.
 
+This file is the multipage entry point. Streamlit displays its filename
+in the sidebar navigation, so it must be named after how we want the app
+to appear: "Rating Valuation Suite".
+
 Launch:
-    streamlit run app/streamlit_app.py
+    streamlit run app/Rating_Valuation_Suite.py
 """
 
 from __future__ import annotations
@@ -30,7 +34,7 @@ st.set_page_config(
 def main() -> None:
     page_header(
         "Rating & Valuation Suite",
-        subtitle="Valutazione d'impresa e credit risk forward-looking basati su BMS, DCF, Terminal Value coerente e RAPD",
+        subtitle="Valutazione d'impresa e credit risk forward-looking basati su BMS, DCF, Terminal Value coerente e Agentic Credit Risk",
     )
 
     bundle = load_bundle()
@@ -110,14 +114,15 @@ def main() -> None:
     st.markdown("### Navigazione")
     st.info(
         """
-        Usa il menu laterale per accedere ai sei moduli:
+        Usa il menu laterale per accedere ai sette moduli:
 
         1. **BMS Builder** — costruzione del Bilancio Medio Standardizzato sul campione peer.
         2. **DCF Valuation** — valutazione a 2 / 3 stadi con Terminal Value coerente e validatore.
         3. **Differential Analysis** — confronto target vs Impresa Media Standard.
-        4. **RAPD Credit Risk** — simulazione stocastica Monte Carlo per PD / LGD / EL / UL.
+        4. **Agentic Credit Risk** — simulazione stocastica Monte Carlo per PD / LGD / EL / UL.
         5. **Rating Mapper** — conversioni Rating ↔ PD, CDS → PD, Altman Z → rating.
-        6. **Backtest Comparator** — confronto RAPD vs Altman Z-score su un campione scelto.
+        6. **Backtest Comparator** — confronto Agentic Credit Risk vs Altman Z-score.
+        7. **Data Manager** — download dei template CSV e upload di dataset personalizzati.
         """
     )
 
@@ -126,7 +131,7 @@ def main() -> None:
             """
             - **BMS** — Scarano A., Brughera G.L.G., *Valutazione di una PMI con approccio settoriale*, Rivista AIAF n. 65, 2008.
             - **Terminal Value** — Scarano A., Di Napoli G., *Calcolo del Terminal Value e rispetto delle condizioni di coerenza*, Rivista AIAF n. 66, 2008.
-            - **RAPD** — Montesi G., Papiro G., *Risk Analysis Probability of Default: A Stochastic Simulation Model*, Draft, 2014.
+            - **Agentic Credit Risk** — basato su Montesi G., Papiro G., *Risk Analysis Probability of Default: A Stochastic Simulation Model*, Draft, 2014.
 
             Vedi `overview.md` per la sintesi completa.
             """

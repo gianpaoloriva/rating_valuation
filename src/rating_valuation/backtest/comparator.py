@@ -9,9 +9,9 @@ their discriminatory power using standard metrics:
     - Kolmogorov-Smirnov statistic
 
 Supported models (V1):
-    * RAPD          — forward-looking stochastic simulation
-    * Altman Z''    — accounting ratios (non-manufacturing formulation,
-                       applicable to Italian private PMI)
+    * Agentic Credit Risk — forward-looking stochastic simulation
+    * Altman Z''          — accounting ratios (non-manufacturing formulation,
+                              applicable to Italian private PMI)
 
 The comparator works even with the fake dataset (where we do not have
 real defaults); in that case the caller can pass an empty defaulted
@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-from rating_valuation.rapd.simulator import RAPDSimulator
+from rating_valuation.agentic_credit_risk.simulator import AgenticCreditRiskSimulator
 from rating_valuation.rating.mapper import (
     RatingLookup,
     altman_z_double_prime_non_manufacturing,
@@ -117,8 +117,8 @@ class BacktestRow:
     company_name: str
     fiscal_year: int
     is_defaulted: int
-    rapd_pd: float
-    rapd_rating: str
+    acr_pd: float
+    acr_rating: str
     altman_z: float
     altman_rating: str
     altman_pd: float
@@ -129,8 +129,8 @@ class BacktestRow:
             "company_name": self.company_name,
             "fiscal_year": self.fiscal_year,
             "is_defaulted": self.is_defaulted,
-            "rapd_pd": self.rapd_pd,
-            "rapd_rating": self.rapd_rating,
+            "acr_pd": self.acr_pd,
+            "acr_rating": self.acr_rating,
             "altman_z": self.altman_z,
             "altman_rating": self.altman_rating,
             "altman_pd": self.altman_pd,
@@ -159,7 +159,7 @@ class BacktestResult:
         labels = df["is_defaulted"].to_numpy()
 
         models = {
-            "RAPD": df["rapd_pd"].to_numpy(),
+            "Agentic Credit Risk": df["acr_pd"].to_numpy(),
             "Altman Z''": df["altman_pd"].to_numpy(),
         }
 
@@ -203,17 +203,17 @@ class BacktestResult:
 
 
 class BacktestRunner:
-    """Run RAPD + Altman on a sample of companies and produce comparisons.
+    """Run Agentic Credit Risk + Altman on a sample and produce comparisons.
 
     Parameters
     ----------
     sectors, macro, rating_master_scale :
         Reference tables from :func:`rating_valuation.common.data_loader.load_all`.
     n_trials, n_years :
-        RAPD simulation parameters. Default: 5 000 × 3 years (lighter than the
-        paper's 20 000 for faster backtests).
-    rapd_kwargs :
-        Extra keyword arguments forwarded to ``RAPDSimulator.from_company``.
+        Agentic Credit Risk simulation parameters. Default: 5 000 × 3 years
+        (lighter than the paper's 20 000 for faster backtests).
+    acr_kwargs :
+        Extra keyword arguments forwarded to ``AgenticCreditRiskSimulator.from_company``.
     """
 
     def __init__(
@@ -224,13 +224,13 @@ class BacktestRunner:
         *,
         n_trials: int = 5_000,
         n_years: int = 3,
-        rapd_kwargs: dict | None = None,
+        acr_kwargs: dict | None = None,
     ) -> None:
         self.sectors = sectors
         self.macro = macro
         self.n_trials = n_trials
         self.n_years = n_years
-        self.rapd_kwargs = rapd_kwargs or {}
+        self.acr_kwargs = acr_kwargs or {}
         self.lookup = (
             RatingLookup(
                 rating_to_pd=dict(zip(rating_master_scale["rating"], rating_master_scale["pd_1y"])),
@@ -265,25 +265,25 @@ class BacktestRunner:
             Others are treated as performing (label = 0). Pass ``None`` or
             an empty set if the backtest only inspects PD dispersion.
         seed : int | None
-            Base seed for the RAPD Monte Carlo. Each company uses ``seed + i``
+            Base seed for the Monte Carlo. Each company uses ``seed + i``
             to keep results reproducible yet decorrelated between companies.
         """
         defaulted_ids = defaulted_ids or set()
         rows: list[BacktestRow] = []
 
         for i, (_, company) in enumerate(companies.iterrows()):
-            # --- RAPD ---------------------------------------------------
-            sim = RAPDSimulator.from_company(
+            # --- Agentic Credit Risk ------------------------------------
+            sim = AgenticCreditRiskSimulator.from_company(
                 company,
                 self.sectors,
                 self.macro,
                 n_trials=self.n_trials,
                 n_years=self.n_years,
-                **self.rapd_kwargs,
+                **self.acr_kwargs,
             )
-            rapd_result = sim.run(seed=(seed + i) if seed is not None else None)
-            rapd_pd = float(rapd_result.metrics.cumulative_pd[-1])
-            rapd_rating = rapd_result.implied_rating or "N/A"
+            acr_result = sim.run(seed=(seed + i) if seed is not None else None)
+            acr_pd = float(acr_result.metrics.cumulative_pd[-1])
+            acr_rating = acr_result.implied_rating or "N/A"
 
             # --- Altman Z'' (non-manufacturing) -------------------------
             working_capital = float(company["net_working_capital"])
@@ -322,8 +322,8 @@ class BacktestRunner:
                     company_name=str(company["company_name"]),
                     fiscal_year=int(company["fiscal_year"]),
                     is_defaulted=1 if str(company["company_id"]) in defaulted_ids else 0,
-                    rapd_pd=rapd_pd,
-                    rapd_rating=rapd_rating,
+                    acr_pd=acr_pd,
+                    acr_rating=acr_rating,
                     altman_z=float(z) if z == z else float("nan"),
                     altman_rating=altman_rating,
                     altman_pd=float(altman_pd),

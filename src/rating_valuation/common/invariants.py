@@ -2,7 +2,7 @@
 
 These are the same invariants enforced by the fake data generator and expected
 by all downstream tools. Any violation in real data should be flagged before
-running BMS, DCF or RAPD.
+running BMS, DCF or Agentic Credit Risk.
 """
 
 from __future__ import annotations

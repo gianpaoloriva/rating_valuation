@@ -1,4 +1,4 @@
-"""Streamlit page 4 — RAPD stochastic credit risk simulation."""
+"""Streamlit page 4 — Agentic Credit Risk stochastic simulation."""
 
 from __future__ import annotations
 
@@ -22,14 +22,14 @@ from app._common import (
     target_selector,
     year_selector,
 )
-from rating_valuation.rapd.simulator import RAPDSimulator
+from rating_valuation.agentic_credit_risk.simulator import AgenticCreditRiskSimulator
 
-st.set_page_config(page_title="RAPD Credit Risk", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="Agentic Credit Risk", page_icon="⚡", layout="wide")
 
 
 def main() -> None:
     page_header(
-        "RAPD Credit Risk",
+        "Agentic Credit Risk",
         subtitle="Simulazione stocastica Monte Carlo della PD forward-looking (Montesi/Papiro 2014)",
         icon="⚡",
     )
@@ -39,9 +39,9 @@ def main() -> None:
     # Sidebar — target + parameters
     # ------------------------------------------------------------------
     st.sidebar.header("Target")
-    sub_industry = sector_selector(bundle, key="rapd_sector")
-    year = year_selector(bundle, sub_industry, key="rapd_year")
-    target = target_selector(bundle, sub_industry, year, key="rapd_target")
+    sub_industry = sector_selector(bundle, key="acr_sector")
+    year = year_selector(bundle, sub_industry, key="acr_year")
+    target = target_selector(bundle, sub_industry, year, key="acr_target")
 
     st.sidebar.header("Simulazione Monte Carlo")
     n_trials = st.sidebar.select_slider(
@@ -77,7 +77,7 @@ def main() -> None:
     # Run simulation
     # ------------------------------------------------------------------
     with st.spinner(f"Simulazione {n_trials:,} trial × {n_years} anni..."):
-        simulator = RAPDSimulator.from_company(
+        simulator = AgenticCreditRiskSimulator.from_company(
             target,
             bundle.sectors,
             bundle.macro,

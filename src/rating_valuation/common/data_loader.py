@@ -9,8 +9,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import IO, Union
 
 import pandas as pd
+
+# Either a filesystem path or a file-like object opened in binary mode
+PathLike = Union[Path, str, IO[bytes]]
 
 # -----------------------------------------------------------------------------
 # Default locations
@@ -129,16 +133,38 @@ def _validate_columns(df: pd.DataFrame, required: tuple[str, ...], source: str) 
         raise SchemaError(f"{source}: missing required columns: {missing}")
 
 
+def _resolve_source(
+    source: PathLike | None,
+    default_path: Path,
+) -> tuple[Path | IO[bytes], str]:
+    """Normalize the loader input.
+
+    Returns ``(io_target, label)`` where ``io_target`` can be passed to
+    ``pd.read_csv`` and ``label`` is a human-readable identifier used in
+    error messages. Accepts:
+
+    * ``None`` → falls back to ``default_path``
+    * a ``Path`` or ``str`` → opened by ``pd.read_csv`` as filesystem path
+    * any object exposing ``.read()`` (file-like) → passed through as-is
+    """
+    if source is None:
+        return default_path, str(default_path)
+    if hasattr(source, "read"):
+        label = getattr(source, "name", "<file-like>")
+        return source, str(label)
+    return Path(source), str(source)
+
+
 # -----------------------------------------------------------------------------
 # Individual loaders
 # -----------------------------------------------------------------------------
 
 
-def load_companies(path: Path | str | None = None) -> pd.DataFrame:
+def load_companies(path: PathLike | None = None) -> pd.DataFrame:
     """Load companies.csv with enforced dtypes and schema validation."""
-    csv_path = Path(path) if path else DEFAULT_DATA_DIR / COMPANIES_CSV
-    df = pd.read_csv(csv_path)
-    _validate_columns(df, COMPANY_REQUIRED_COLUMNS, str(csv_path))
+    target, label = _resolve_source(path, DEFAULT_DATA_DIR / COMPANIES_CSV)
+    df = pd.read_csv(target)
+    _validate_columns(df, COMPANY_REQUIRED_COLUMNS, label)
 
     df["is_target"] = df["is_target"].astype(int)
     df["fiscal_year"] = df["fiscal_year"].astype(int)
@@ -150,25 +176,25 @@ def load_companies(path: Path | str | None = None) -> pd.DataFrame:
     return df.sort_values(["company_id", "fiscal_year"]).reset_index(drop=True)
 
 
-def load_sectors(path: Path | str | None = None) -> pd.DataFrame:
-    csv_path = Path(path) if path else DEFAULT_DATA_DIR / SECTORS_CSV
-    df = pd.read_csv(csv_path)
-    _validate_columns(df, SECTOR_REQUIRED_COLUMNS, str(csv_path))
+def load_sectors(path: PathLike | None = None) -> pd.DataFrame:
+    target, label = _resolve_source(path, DEFAULT_DATA_DIR / SECTORS_CSV)
+    df = pd.read_csv(target)
+    _validate_columns(df, SECTOR_REQUIRED_COLUMNS, label)
     return df
 
 
-def load_macro(path: Path | str | None = None) -> pd.DataFrame:
-    csv_path = Path(path) if path else DEFAULT_DATA_DIR / MACRO_CSV
-    df = pd.read_csv(csv_path)
-    _validate_columns(df, MACRO_REQUIRED_COLUMNS, str(csv_path))
+def load_macro(path: PathLike | None = None) -> pd.DataFrame:
+    target, label = _resolve_source(path, DEFAULT_DATA_DIR / MACRO_CSV)
+    df = pd.read_csv(target)
+    _validate_columns(df, MACRO_REQUIRED_COLUMNS, label)
     df["year"] = df["year"].astype(int)
     return df.sort_values(["country", "year"]).reset_index(drop=True)
 
 
-def load_rating_master_scale(path: Path | str | None = None) -> pd.DataFrame:
-    csv_path = Path(path) if path else DEFAULT_DATA_DIR / RATING_MASTER_SCALE_CSV
-    df = pd.read_csv(csv_path)
-    _validate_columns(df, RATING_REQUIRED_COLUMNS, str(csv_path))
+def load_rating_master_scale(path: PathLike | None = None) -> pd.DataFrame:
+    target, label = _resolve_source(path, DEFAULT_DATA_DIR / RATING_MASTER_SCALE_CSV)
+    df = pd.read_csv(target)
+    _validate_columns(df, RATING_REQUIRED_COLUMNS, label)
     df["rating_ordinal"] = df["rating_ordinal"].astype(int)
     df["pd_1y"] = pd.to_numeric(df["pd_1y"], errors="raise")
     return df.sort_values("rating_ordinal").reset_index(drop=True)

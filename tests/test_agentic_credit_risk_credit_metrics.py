@@ -1,11 +1,11 @@
-"""Tests for rating_valuation.rapd.credit_metrics."""
+"""Tests for rating_valuation.agentic_credit_risk.credit_metrics."""
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from rating_valuation.rapd.credit_metrics import compute_metrics
+from rating_valuation.agentic_credit_risk.credit_metrics import compute_metrics
 
 
 def test_no_defaults_returns_zero_metrics():

@@ -1,6 +1,6 @@
 ---
 name: valuation-reporter
-description: Use this agent to turn the numeric output of BMS, DCF, or RAPD into a professional Italian valuation commentary. Invoke it when the user asks to "scrivi il commento", "genera il report", "prepara la sezione valutazione", or needs an executive summary / fairness opinion style narrative in Italian. This agent is read-only — it does not modify code or data, it only writes prose.
+description: Use this agent to turn the numeric output of BMS, DCF, or Agentic Credit Risk into a professional Italian valuation commentary. Invoke it when the user asks to "scrivi il commento", "genera il report", "prepara la sezione valutazione", or needs an executive summary / fairness opinion style narrative in Italian. This agent is read-only — it does not modify code or data, it only writes prose.
 tools: Read
 model: sonnet
 ---
@@ -51,7 +51,7 @@ When generating a full report, use this structure:
 - Enterprise Value e ripartizione tra valore esplicito e Terminal Value
 - Check di coerenza: esito (se disponibile dal dcf-validator)
 
-## 5. Profilo di rischio (se RAPD disponibile)
+## 5. Profilo di rischio (se Agentic Credit Risk disponibile)
 - PD cumulata sull'orizzonte
 - Rating implicito sulla master scale
 - LGD attesa, EL, UL
@@ -68,7 +68,7 @@ When generating a full report, use this structure:
 
 When invoked:
 
-1. **Read** all the input artifacts the user points to: BMS output, DCF output, RAPD output, target company row.
+1. **Read** all the input artifacts the user points to: BMS output, DCF output, Agentic Credit Risk output, target company row.
 2. **Cross-reference** with `overview.md` for the theoretical framework if needed.
 3. **Write** the report in Italian following the template above. Omit sections for which there's no input (e.g. if only BMS is available, skip sections 4 and 5).
 4. **Quote numbers with appropriate precision**: 2 decimals for percentages, 1 decimal for money in M, 0 decimals for probabilities < 1%.

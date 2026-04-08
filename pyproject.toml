@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "rating-valuation"
 version = "0.1.0"
-description = "Suite for SME valuation (BMS, DCF, TV coherence) and forward-looking credit risk (RAPD)"
+description = "Suite for SME valuation (BMS, DCF, TV coherence) and forward-looking credit risk (Agentic Credit Risk)"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [

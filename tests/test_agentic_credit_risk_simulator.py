@@ -1,11 +1,14 @@
-"""Tests for rating_valuation.rapd.simulator — end-to-end integration."""
+"""Tests for rating_valuation.agentic_credit_risk.simulator — end-to-end integration."""
 
 from __future__ import annotations
 
 import pytest
 
+from rating_valuation.agentic_credit_risk.simulator import (
+    AgenticCreditRiskResult,
+    AgenticCreditRiskSimulator,
+)
 from rating_valuation.common.data_loader import load_all, target_row
-from rating_valuation.rapd.simulator import RAPDResult, RAPDSimulator
 
 
 @pytest.fixture(scope="module")
@@ -15,7 +18,7 @@ def bundle():
 
 def test_simulator_builds_from_company(bundle):
     target = target_row(bundle.companies, fiscal_year=2024).iloc[0]
-    sim = RAPDSimulator.from_company(
+    sim = AgenticCreditRiskSimulator.from_company(
         target, bundle.sectors, bundle.macro,
         n_trials=2000, n_years=3,
     )
@@ -29,12 +32,12 @@ def test_simulator_builds_from_company(bundle):
 
 def test_simulator_run_produces_valid_result(bundle):
     target = target_row(bundle.companies, fiscal_year=2024).iloc[0]
-    sim = RAPDSimulator.from_company(
+    sim = AgenticCreditRiskSimulator.from_company(
         target, bundle.sectors, bundle.macro,
         n_trials=2000, n_years=3,
     )
     result = sim.run(seed=42)
-    assert isinstance(result, RAPDResult)
+    assert isinstance(result, AgenticCreditRiskResult)
     # PD should be a valid probability at each period
     assert 0 <= result.metrics.cumulative_pd[-1] <= 1
     # Cumulative PD monotonic non-decreasing
@@ -46,7 +49,7 @@ def test_simulator_healthy_target_has_low_pd(bundle):
     """Riva Meccanica is engineered to be above-sector in margin and low-leverage,
     so its cumulative 3y PD should be well below 20%."""
     target = target_row(bundle.companies, fiscal_year=2024).iloc[0]
-    sim = RAPDSimulator.from_company(
+    sim = AgenticCreditRiskSimulator.from_company(
         target, bundle.sectors, bundle.macro,
         n_trials=5000, n_years=3,
     )
@@ -56,7 +59,7 @@ def test_simulator_healthy_target_has_low_pd(bundle):
 
 def test_simulator_assigns_implied_rating(bundle):
     target = target_row(bundle.companies, fiscal_year=2024).iloc[0]
-    sim = RAPDSimulator.from_company(
+    sim = AgenticCreditRiskSimulator.from_company(
         target, bundle.sectors, bundle.macro,
         n_trials=2000, n_years=3,
     )
@@ -75,7 +78,7 @@ def test_simulator_assigns_implied_rating(bundle):
 
 def test_simulator_diagnostic_matrices_shape(bundle):
     target = target_row(bundle.companies, fiscal_year=2024).iloc[0]
-    sim = RAPDSimulator.from_company(
+    sim = AgenticCreditRiskSimulator.from_company(
         target, bundle.sectors, bundle.macro,
         n_trials=1000, n_years=3,
     )
@@ -88,7 +91,7 @@ def test_simulator_diagnostic_matrices_shape(bundle):
 
 def test_simulator_seed_reproducible(bundle):
     target = target_row(bundle.companies, fiscal_year=2024).iloc[0]
-    sim = RAPDSimulator.from_company(
+    sim = AgenticCreditRiskSimulator.from_company(
         target, bundle.sectors, bundle.macro,
         n_trials=1000, n_years=3,
     )
@@ -99,7 +102,7 @@ def test_simulator_seed_reproducible(bundle):
 
 def test_simulator_as_dataframe(bundle):
     target = target_row(bundle.companies, fiscal_year=2024).iloc[0]
-    sim = RAPDSimulator.from_company(
+    sim = AgenticCreditRiskSimulator.from_company(
         target, bundle.sectors, bundle.macro,
         n_trials=1000, n_years=3,
     )
@@ -115,7 +118,7 @@ def test_simulator_as_dataframe(bundle):
 
 def test_simulator_summary_includes_rating(bundle):
     target = target_row(bundle.companies, fiscal_year=2024).iloc[0]
-    sim = RAPDSimulator.from_company(
+    sim = AgenticCreditRiskSimulator.from_company(
         target, bundle.sectors, bundle.macro,
         n_trials=1000, n_years=3,
     )
@@ -129,7 +132,7 @@ def test_simulator_rejects_missing_sector(bundle):
     target = target_row(bundle.companies, fiscal_year=2024).iloc[0].copy()
     target["gics_sub_industry"] = "Nonexistent Industry"
     with pytest.raises(KeyError, match="sector"):
-        RAPDSimulator.from_company(
+        AgenticCreditRiskSimulator.from_company(
             target, bundle.sectors, bundle.macro,
             n_trials=100, n_years=2,
         )

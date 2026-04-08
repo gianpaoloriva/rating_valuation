@@ -1,11 +1,11 @@
-"""Tests for rating_valuation.rapd.stochastic."""
+"""Tests for rating_valuation.agentic_credit_risk.stochastic."""
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from rating_valuation.rapd.stochastic import (
+from rating_valuation.agentic_credit_risk.stochastic import (
     N_VARS,
     StochasticParameters,
     WeibullParams,

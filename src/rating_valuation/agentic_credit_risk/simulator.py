@@ -1,14 +1,15 @@
-"""RAPD Monte Carlo orchestrator.
+"""Agentic Credit Risk Monte Carlo orchestrator.
 
 Ties together the stochastic sampler, the debt solver and the credit
-metrics module into a single ``RAPDSimulator`` class. The typical workflow:
+metrics module into a single ``AgenticCreditRiskSimulator`` class. The
+typical workflow:
 
-    1. ``RAPDSimulator.from_company(...)`` reads the target row, the sector
-       parameters and the macro data and builds a simulator instance.
+    1. ``AgenticCreditRiskSimulator.from_company(...)`` reads the target row,
+       the sector parameters and the macro data and builds a simulator instance.
     2. ``simulator.run(seed=42)`` executes ``n_trials`` Monte Carlo
        scenarios across ``n_years`` forecast periods.
-    3. The returned ``RAPDResult`` bundles the credit metrics, the
-       diagnostic matrices and the implied rating (via the master scale).
+    3. The returned ``AgenticCreditRiskResult`` bundles the credit metrics,
+       the diagnostic matrices and the implied rating (via the master scale).
 
 Vectorized across trials using numpy.
 """
@@ -20,9 +21,14 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-from rating_valuation.rapd.credit_metrics import CreditMetrics, compute_metrics
-from rating_valuation.rapd.debt_solver import simulate_period_vectorized
-from rating_valuation.rapd.stochastic import (
+from rating_valuation.agentic_credit_risk.credit_metrics import (
+    CreditMetrics,
+    compute_metrics,
+)
+from rating_valuation.agentic_credit_risk.debt_solver import (
+    simulate_period_vectorized,
+)
+from rating_valuation.agentic_credit_risk.stochastic import (
     StochasticParameters,
     WeibullParams,
     sample_scenarios,
@@ -55,7 +61,7 @@ class InitialState:
 
 
 @dataclass
-class RAPDResult:
+class AgenticCreditRiskResult:
     initial_state: InitialState
     params: StochasticParameters
     metrics: CreditMetrics
@@ -99,7 +105,7 @@ class RAPDResult:
 # -----------------------------------------------------------------------------
 
 
-class RAPDSimulator:
+class AgenticCreditRiskSimulator:
     """Monte Carlo stochastic simulator for PD/LGD estimation.
 
     Parameters
@@ -147,7 +153,7 @@ class RAPDSimulator:
         nwc_min_delta: float = 0.05,
         n_trials: int = DEFAULT_N_TRIALS,
         n_years: int = DEFAULT_N_YEARS,
-    ) -> RAPDSimulator:
+    ) -> AgenticCreditRiskSimulator:
         """Build a simulator directly from the reference datasets.
 
         ``*_min_delta`` are the implementation hypotheses that convert the
@@ -277,7 +283,7 @@ class RAPDSimulator:
         seed: int | None = None,
         map_rating: bool = True,
         keep_diagnostic: bool = True,
-    ) -> RAPDResult:
+    ) -> AgenticCreditRiskResult:
         scenarios = sample_scenarios(
             self.params, n_trials=self.n_trials, n_years=self.n_years, seed=seed
         )
@@ -362,7 +368,7 @@ class RAPDSimulator:
             lookup = RatingLookup.from_csv()
             implied_rating = lookup.rating_of_pd(float(metrics.cumulative_pd[-1]))
 
-        result = RAPDResult(
+        result = AgenticCreditRiskResult(
             initial_state=init,
             params=self.params,
             metrics=metrics,

@@ -1,4 +1,4 @@
-"""Endogenous debt solver — RAPD equation [7].
+"""Endogenous debt solver — Agentic Credit Risk equation [7].
 
 Given the operating state at time t and the previous period's debt, this
 module determines the end-of-period debt under the financial equilibrium

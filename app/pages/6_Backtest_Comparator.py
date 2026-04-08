@@ -1,4 +1,4 @@
-"""Streamlit page 6 — Backtest comparator (RAPD vs Altman Z)."""
+"""Streamlit page 6 — Backtest comparator (Agentic Credit Risk vs Altman Z)."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ st.set_page_config(page_title="Backtest Comparator", page_icon="🏁", layout="w
 def main() -> None:
     page_header(
         "Backtest Comparator",
-        subtitle="Confronto RAPD vs Altman Z-score su un campione selezionato",
+        subtitle="Confronto Agentic Credit Risk vs Altman Z-score su un campione selezionato",
         icon="🏁",
     )
     bundle = load_bundle()
@@ -31,11 +31,11 @@ def main() -> None:
     sub_industry = sector_selector(bundle, key="bt_sector")
     year = year_selector(bundle, sub_industry, key="bt_year")
     n_trials = st.sidebar.select_slider(
-        "Trial RAPD per azienda",
+        "Trial Monte Carlo per azienda",
         options=[500, 1000, 2500, 5000],
         value=1000,
     )
-    n_years = st.sidebar.slider("Orizzonte RAPD (anni)", 1, 5, 3)
+    n_years = st.sidebar.slider("Orizzonte (anni)", 1, 5, 3)
 
     sample = bundle.companies[
         (bundle.companies["gics_sub_industry"] == sub_industry)
@@ -65,7 +65,7 @@ def main() -> None:
         st.info("Configura il campione e premi ▶ Esegui backtest")
         return
 
-    with st.spinner(f"Backtest di {len(sample)} aziende × {n_trials} trial RAPD..."):
+    with st.spinner(f"Backtest di {len(sample)} aziende × {n_trials} trial..."):
         runner = BacktestRunner(
             bundle.sectors,
             bundle.macro,
@@ -85,7 +85,7 @@ def main() -> None:
     st.dataframe(
         df.style.format(
             {
-                "rapd_pd": "{:.2%}",
+                "acr_pd": "{:.2%}",
                 "altman_z": "{:.2f}",
                 "altman_pd": "{:.2%}",
             }
@@ -122,22 +122,22 @@ def main() -> None:
         )
 
     # ------------------------------------------------------------------
-    # Scatter: RAPD PD vs Altman PD
+    # Scatter: Agentic Credit Risk PD vs Altman PD
     # ------------------------------------------------------------------
-    st.markdown("### Confronto RAPD vs Altman Z''")
+    st.markdown("### Confronto Agentic Credit Risk vs Altman Z''")
     plot_df = df.copy()
     plot_df["label"] = plot_df["is_defaulted"].map({0: "Performing", 1: "Defaulted"})
     fig = px.scatter(
         plot_df,
         x="altman_pd",
-        y="rapd_pd",
+        y="acr_pd",
         color="label",
         size=[40] * len(plot_df),
         hover_name="company_name",
         log_x=True,
         log_y=True,
         title="PD implicite a confronto (scala log)",
-        labels={"altman_pd": "Altman Z'' PD", "rapd_pd": "RAPD cumulata 3y"},
+        labels={"altman_pd": "Altman Z'' PD", "acr_pd": "Agentic Credit Risk PD cum. 3y"},
     )
     # 45° reference line
     fig.add_shape(
@@ -151,13 +151,13 @@ def main() -> None:
     # Rating distribution
     # ------------------------------------------------------------------
     st.markdown("### Distribuzione dei rating implicati")
-    rating_counts_rapd = df["rapd_rating"].value_counts().reset_index()
-    rating_counts_rapd.columns = ["rating", "count"]
-    rating_counts_rapd["model"] = "RAPD"
+    rating_counts_acr = df["acr_rating"].value_counts().reset_index()
+    rating_counts_acr.columns = ["rating", "count"]
+    rating_counts_acr["model"] = "Agentic Credit Risk"
     rating_counts_altman = df["altman_rating"].value_counts().reset_index()
     rating_counts_altman.columns = ["rating", "count"]
     rating_counts_altman["model"] = "Altman Z''"
-    combined = pd.concat([rating_counts_rapd, rating_counts_altman], ignore_index=True)
+    combined = pd.concat([rating_counts_acr, rating_counts_altman], ignore_index=True)
     fig2 = px.bar(
         combined,
         x="rating",

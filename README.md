@@ -4,7 +4,7 @@ Strumenti di **valutazione d'impresa** e **credit risk forward-looking** per PMI
 
 1. **BMS — Bilancio Medio Standardizzato** (Scarano/Brughera, AIAF n. 65, 2008)
 2. **Terminal Value coerente** (Scarano/Di Napoli, AIAF n. 66, 2008)
-3. **RAPD — Risk Analysis Probability of Default** (Montesi/Papiro, 2014)
+3. **Agentic Credit Risk — forward-looking stochastic PD** (basato su Montesi/Papiro, 2014)
 
 Vedi `overview.md` per la sintesi completa dei tre lavori e delle formule.
 
@@ -14,7 +14,7 @@ Vedi `overview.md` per la sintesi completa dei tre lavori e delle formule.
 rating_valuation/
 ├── overview.md                    sintesi dei 3 paper + proposta strumenti
 ├── data/                          dataset CSV normalizzati (vedi data/schema.md)
-├── src/rating_valuation/          libreria Python (common, bms, dcf, rapd, rating)
+├── src/rating_valuation/          libreria Python (common, bms, dcf, agentic_credit_risk, rating, backtest)
 ├── app/                           dashboard Streamlit multi-page
 ├── tests/                         pytest test suite
 └── .claude/agents/                subagent specializzati (bms-analyst, dcf-validator, ...)
@@ -36,7 +36,7 @@ pytest
 
 # launch dashboard (richiede extras 'app': streamlit + plotly)
 pip install -e ".[app]"
-streamlit run app/streamlit_app.py
+streamlit run app/Rating_Valuation_Suite.py
 ```
 
 ### Docker
@@ -58,10 +58,10 @@ gira Streamlit come non-root e include healthcheck su `/_stcore/health`.
 - [x] BMS Builder (Tool A)
 - [x] DCF Engine 2/3 stadi + Terminal Value coherence check (Tool B)
 - [x] Differential Analyzer target vs IMS (Tool C)
-- [x] RAPD Monte Carlo simulator con **cash dinamico eq. [6]** (Tool D)
+- [x] Agentic Credit Risk Monte Carlo simulator con **cash dinamico eq. [6]** (Tool D)
 - [x] Rating Mapper (Tool E)
-- [x] Backtest Comparator RAPD vs Altman Z'' con AUROC / Gini / KS (Tool F)
-- [x] Claude Code subagent (bms-analyst, dcf-validator, rapd-simulator, data-curator, valuation-reporter, backtest-analyst)
+- [x] Backtest Comparator Agentic Credit Risk vs Altman Z'' con AUROC / Gini / KS (Tool F)
+- [x] Claude Code subagent (bms-analyst, dcf-validator, agentic-credit-risk-simulator, data-curator, valuation-reporter, backtest-analyst)
 - [x] Streamlit dashboard multi-page (Home + 6 pagine)
 - [x] Dockerfile + docker-compose
 

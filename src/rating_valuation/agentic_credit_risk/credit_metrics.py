@@ -89,7 +89,7 @@ def compute_metrics(
 ) -> CreditMetrics:
     """Aggregate EV / debt / cash matrices into credit metrics.
 
-    Default condition (RAPD eq. [13]):  ``EV_t < D_t - CASH_t``
+    Default condition (Agentic Credit Risk eq. [13]):  ``EV_t < D_t - CASH_t``
     """
     if ev.shape != debt.shape or ev.shape != cash.shape:
         raise ValueError("ev, debt, cash must share the same shape")

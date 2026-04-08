@@ -1,4 +1,4 @@
-"""Core financial math helpers used by BMS, DCF and RAPD modules.
+"""Core financial math helpers used by BMS, DCF and Agentic Credit Risk modules.
 
 All formulas follow the conventions of the three reference papers:
 - Discount rate is the WACC (pre-tax when used with capital cash flow à la
@@ -55,7 +55,7 @@ def wacc_after_tax(inputs: WACCInputs) -> float:
 
 
 def wacc_pre_tax(inputs: WACCInputs) -> float:
-    """Pre-tax WACC (RAPD convention, capital cash flow).
+    """Pre-tax WACC (Agentic Credit Risk convention, capital cash flow).
 
     The tax shield is embedded in the cash flows, so the discount rate
     must NOT be reduced by (1-t). See Ruback (2002).
@@ -116,7 +116,7 @@ def terminal_value_gordon(
 
 
 # -----------------------------------------------------------------------------
-# Key operating ratios used by BMS, DCF and RAPD
+# Key operating ratios used by BMS, DCF and Agentic Credit Risk
 # -----------------------------------------------------------------------------
 
 

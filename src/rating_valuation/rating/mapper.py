@@ -20,7 +20,7 @@ import pandas as pd
 from rating_valuation.common.data_loader import load_rating_master_scale
 
 # -----------------------------------------------------------------------------
-# Default LGD used by the CDS -> PD conversion (paper RAPD uses recovery 40%)
+# Default LGD used by the CDS -> PD conversion (Agentic Credit Risk uses recovery 40%)
 # -----------------------------------------------------------------------------
 
 DEFAULT_RECOVERY_RATE = 0.40
@@ -32,7 +32,7 @@ DEFAULT_LGD = 1.0 - DEFAULT_RECOVERY_RATE  # 0.60
 # -----------------------------------------------------------------------------
 # Source: Altman & Hotchkiss (2006), "Corporate Financial Distress and Bankruptcy",
 # 3rd ed., Wiley, p. 247 (Z-score, manufacturing) and p. 248 (Z'-score, non-mfg),
-# as referenced in the RAPD paper Appendix A.
+# as referenced in Montesi/Papiro (2014) Appendix A.
 #
 # The mapping below uses the Z-score buckets proposed by Altman for the
 # "original" manufacturing model. For dei non manufacturing ci sarà una tabella
@@ -171,7 +171,7 @@ class RatingLookup:
     ) -> float:
         """Approximate PD from a CDS spread.
 
-        Formula (paper RAPD Appendix A): ``PD = 1 − exp(−(CDS / LGD) · T)``
+        Formula (Montesi/Papiro 2014 Appendix A): ``PD = 1 − exp(−(CDS / LGD) · T)``
         with LGD=0.6 by default.
 
         Parameters

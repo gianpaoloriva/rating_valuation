@@ -93,3 +93,27 @@ def test_schema_error_on_missing_columns(tmp_path):
     csv_path.write_text("foo,bar\n1,2\n")
     with pytest.raises(SchemaError, match="missing required columns"):
         load_companies(csv_path)
+
+
+def test_load_companies_accepts_file_like_object():
+    """The loader must accept BytesIO/file-like inputs (used by the Streamlit
+    Data Manager page for uploads)."""
+    import io
+
+    from rating_valuation.common.data_loader import DEFAULT_DATA_DIR
+
+    raw = (DEFAULT_DATA_DIR / "companies.csv").read_bytes()
+    df = load_companies(io.BytesIO(raw))
+    assert len(df) == 48
+    assert df["company_id"].nunique() == 16
+
+
+def test_load_sectors_accepts_file_like_object():
+    import io
+
+    from rating_valuation.common.data_loader import DEFAULT_DATA_DIR
+
+    raw = (DEFAULT_DATA_DIR / "sectors.csv").read_bytes()
+    df = load_sectors(io.BytesIO(raw))
+    assert len(df) >= 1
+    assert "gics_sub_industry" in df.columns

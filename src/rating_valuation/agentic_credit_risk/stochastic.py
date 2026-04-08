@@ -1,4 +1,4 @@
-"""Stochastic sampling for RAPD — Weibull marginals + Gaussian copula.
+"""Stochastic sampling for Agentic Credit Risk — Weibull marginals + Gaussian copula.
 
 Implements the sampling approach described in the Montesi/Papiro paper
 (Appendix A). For each of the four stochastic variables

@@ -78,7 +78,7 @@ def main() -> None:
     # CDS → PD
     # ------------------------------------------------------------------
     st.divider()
-    st.subheader("CDS spread → PD (formula paper RAPD)")
+    st.subheader("CDS spread → PD (formula Montesi/Papiro 2014)")
     col1, col2, col3 = st.columns(3)
     cds_bps = col1.number_input(
         "CDS spread (bps)", min_value=0, max_value=5000, value=150, step=10

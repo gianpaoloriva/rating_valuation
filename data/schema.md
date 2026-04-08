@@ -1,6 +1,6 @@
 # Data Schema
 
-Questa cartella contiene tutti i dataset di input per gli strumenti di analisi descritti in `overview.md`. Il principio è: **una sola fonte di verità, CSV normalizzati con campi definiti**, in modo che BMS, DCF, RAPD e Rating Mapper leggano gli stessi dati senza duplicazioni.
+Questa cartella contiene tutti i dataset di input per gli strumenti di analisi descritti in `overview.md`. Il principio è: **una sola fonte di verità, CSV normalizzati con campi definiti**, in modo che BMS, DCF, Agentic Credit Risk e Rating Mapper leggano gli stessi dati senza duplicazioni.
 
 Tutti i CSV usano:
 - separatore: `,`
@@ -67,17 +67,17 @@ Una riga per **coppia (company, fiscal_year)**. Contiene il bilancio riclassific
 
 ## 2. `sectors.csv` — Parametri di settore
 
-Una riga per **sotto-settore GICS**. Contiene i parametri per WACC settoriale e per la parametrizzazione delle distribuzioni stocastiche del RAPD.
+Una riga per **sotto-settore GICS**. Contiene i parametri per WACC settoriale e per la parametrizzazione delle distribuzioni stocastiche del Agentic Credit Risk.
 
 | Campo | Tipo | Unità | Descrizione |
 |---|---|---|---|
 | `gics_sector` | string | — | Settore GICS livello 1 |
 | `gics_sub_industry` | string | — | Sotto-settore GICS livello 4 (chiave) |
 | `beta_unlevered` | float | — | Beta unlevered mediano del settore (per CAPM) |
-| `weibull_revenues_shape` | float | — | Shape parameter Weibull per crescita ricavi (default RAPD: 2) |
-| `weibull_opcosts_shape` | float | — | Shape per OpCost/Revenues (default RAPD: 3.5) |
-| `weibull_nfa_shape` | float | — | Shape per NFA/Revenues (default RAPD: 3.5) |
-| `weibull_nwc_shape` | float | — | Shape per NWC/Revenues (default RAPD: 3) |
+| `weibull_revenues_shape` | float | — | Shape parameter Weibull per crescita ricavi (default Agentic Credit Risk: 2) |
+| `weibull_opcosts_shape` | float | — | Shape per OpCost/Revenues (default Agentic Credit Risk: 3.5) |
+| `weibull_nfa_shape` | float | — | Shape per NFA/Revenues (default Agentic Credit Risk: 3.5) |
+| `weibull_nwc_shape` | float | — | Shape per NWC/Revenues (default Agentic Credit Risk: 3) |
 | `autocorr_revenues` | float | — | Autocorrelazione anno-su-anno dei ricavi (default: 0.2) |
 | `autocorr_opcosts` | float | — | Autocorrelazione OpCost/Sales (default: 0.3) |
 | `autocorr_nfa` | float | — | Autocorrelazione NFA/Sales (default: 0.5) |
@@ -87,7 +87,7 @@ Una riga per **sotto-settore GICS**. Contiene i parametri per WACC settoriale e 
 | `corr_sales_nfa` | float | — | Correlazione Sales × NFA/Sales (default: 0.2) |
 | `corr_sales_nwc` | float | — | Correlazione Sales × NWC/Sales (default: −0.3) |
 
-I valori di default sono presi dal paper RAPD, Appendice A (back-testing comparativo).
+I valori di default sono presi dal paper Agentic Credit Risk, Appendice A (back-testing comparativo).
 
 ---
 
@@ -95,7 +95,7 @@ I valori di default sono presi dal paper RAPD, Appendice A (back-testing compara
 
 Una riga per **coppia (country, year)**. Usata da:
 - DCF per costruire il WACC (risk-free, MRP, inflation)
-- RAPD per il centro della distribuzione dei ricavi (crescita PIL nominale media 5y) e per il costo del debito
+- Agentic Credit Risk per il centro della distribuzione dei ricavi (crescita PIL nominale media 5y) e per il costo del debito
 - Terminal Value check per il vincolo `g ≤ g_PIL`
 
 | Campo | Tipo | Unità | Descrizione |
@@ -104,16 +104,16 @@ Una riga per **coppia (country, year)**. Usata da:
 | `year` | int | YYYY | |
 | `gdp_real_growth` | float | decimale | Crescita reale PIL |
 | `inflation_rate` | float | decimale | Inflazione CPI |
-| `gdp_nominal_growth_5y_avg` | float | decimale | Media 5y PIL nominale (per cap di `g` nel TV e centro RAPD) |
+| `gdp_nominal_growth_5y_avg` | float | decimale | Media 5y PIL nominale (per cap di `g` nel TV e centro Agentic Credit Risk) |
 | `risk_free_rate_10y` | float | decimale | Rendimento govvy 10y |
-| `market_risk_premium` | float | decimale | MRP (default 5% per Eurozona, paper RAPD) |
+| `market_risk_premium` | float | decimale | MRP (default 5% per Eurozona, paper Agentic Credit Risk) |
 | `credit_spread_bbb` | float | decimale | Spread medio investment grade BBB |
 
 ---
 
 ## 4. `rating_master_scale.csv` — Master scale Rating ↔ PD
 
-Una riga per **classe di rating**. Mapping usato dal Rating Mapper e dai tool di back-testing. Valori ripresi tal quali dal paper RAPD (Appendice A, tabella "Master Scale").
+Una riga per **classe di rating**. Mapping usato dal Rating Mapper e dai tool di back-testing. Valori ripresi tal quali dal paper Agentic Credit Risk (Appendice A, tabella "Master Scale").
 
 | Campo | Tipo | Unità | Descrizione |
 |---|---|---|---|

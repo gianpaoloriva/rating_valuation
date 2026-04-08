@@ -1,6 +1,6 @@
 # Rating & Valuation — Overview
 
-Questa cartella contiene tre documenti che, letti insieme, definiscono un quadro coerente di **valutazione d'impresa** (DCF, Terminal Value, approccio settoriale per PMI) e di **stima del rischio di credito forward-looking** (RAPD). I tre lavori condividono lo stesso impianto concettuale (capital budgeting + flussi di cassa attesi + WACC) e si prestano a essere implementati come una suite integrata di strumenti.
+Questa cartella contiene tre documenti che, letti insieme, definiscono un quadro coerente di **valutazione d'impresa** (DCF, Terminal Value, approccio settoriale per PMI) e di **stima del rischio di credito forward-looking** (Agentic Credit Risk). I tre lavori condividono lo stesso impianto concettuale (capital budgeting + flussi di cassa attesi + WACC) e si prestano a essere implementati come una suite integrata di strumenti.
 
 ---
 
@@ -101,7 +101,7 @@ Il modello a 3 stadi elimina la problematica della normalizzazione del NOPAT nel
 
 ---
 
-## 3. RAPD — Risk Analysis Probability of Default
+## 3. Agentic Credit Risk — Risk Analysis Probability of Default
 
 **Fonte:** *Risk Analysis Probability of Default: A Stochastic Simulation Model* — Giuseppe Montesi (Univ. Siena), Giovanni Papiro (Capital Planning Director, Banca MPS), Draft April 2014.
 
@@ -168,7 +168,7 @@ Per ogni scenario di default:
 Estensione naturale a seniority/garanzie diverse aggiungendo waterfall sul pagamento.
 
 ### Differenza vs modelli option/contingent (Merton, Moody's KMV)
-| Aspetto | RAPD | Merton/KMV |
+| Aspetto | Agentic Credit Risk | Merton/KMV |
 |---|---|---|
 | EV | da fondamentali (DCF stocastico) | da prezzi di mercato + volatilità storica |
 | Debito | endogeno, ricorsivo | esogeno, statico |
@@ -214,7 +214,7 @@ Conversione **CDS spread → PD**: `PD = 1 - exp(-CDS / LGD)` con LGD = 60% (rec
 ### Risultati empirici (back-testing)
 - 46 imprese defaulted + 100 imprese performing (2003–2011, mercato US prevalentemente).
 - Confronto con Altman Z-score, Moody's KMV EDF, Bloomberg DRSK, rating S&P, CDS implied PD.
-- **RAPD fornisce le PD più alte e più tempestive** per le imprese poi defaulted (PD mediana >60% un anno prima del default; alta anche a 2–3 anni).
+- **Agentic Credit Risk fornisce le PD più alte e più tempestive** per le imprese poi defaulted (PD mediana >60% un anno prima del default; alta anche a 2–3 anni).
 - Recovery rate medio del campione: 37,96% (mediana 33,65%, std 25,01%).
 - Correlazione PD-Recovery: −0,704 (Pearson) → conferma la relazione teorica.
 - Sui performing il modello non mostra bias upward.
@@ -240,7 +240,7 @@ I tre documenti condividono lo stesso impianto teorico ed è naturale comporli i
                 ┌────────────┴────────────┐
                 ▼                         ▼
    ┌────────────────────┐      ┌────────────────────┐
-   │  DCF Valuation     │      │  RAPD              │  ← Doc. 3
+   │  DCF Valuation     │      │  Agentic Credit Risk              │  ← Doc. 3
    │  (TV coerente)     │◄────►│  Monte Carlo PD    │
    │  ← Doc. 2          │      │  endogeno EV/D     │
    └────────────────────┘      └────────────────────┘
@@ -258,9 +258,9 @@ I tre documenti condividono lo stesso impianto teorico ed è naturale comporli i
 ```
 
 Punti di contatto:
-- **Stessa definizione di flusso di cassa**: capital cash flow `OCF = NOPAT − ΔNIC + τ·INT` (Ruback 2002). Coerente sia per il DCF della valutazione sia per il RAPD.
+- **Stessa definizione di flusso di cassa**: capital cash flow `OCF = NOPAT − ΔNIC + τ·INT` (Ruback 2002). Coerente sia per il DCF della valutazione sia per il Agentic Credit Risk.
 - **Stessa definizione di EV**: somma scontata dei flussi + Terminal Value. La coerenza del TV (Doc. 2) è prerequisito per la robustezza della stima di PD (Doc. 3).
-- **Stessa logica settoriale**: il BMS (Doc. 1) può fornire i centroidi e le bande di variazione (medie e min sezionali) usate dal RAPD per parametrizzare le distribuzioni Weibull (Doc. 3, Appendice A).
+- **Stessa logica settoriale**: il BMS (Doc. 1) può fornire i centroidi e le bande di variazione (medie e min sezionali) usate dal Agentic Credit Risk per parametrizzare le distribuzioni Weibull (Doc. 3, Appendice A).
 - **Stesso WACC**: pre-tax, con beta unlevered settoriale. Il sample del BMS è anche il sample naturale per la stima del beta.
 
 ---
@@ -294,7 +294,7 @@ Input: BMS del settore + bilancio target + parametri DCF.
 Output: valutazione del settore (IMS), valutazione della target, decomposizione differenziale (premio/sconto, drivers).
 Logica: valuta prima l'IMS, poi la target, poi attribuisce le differenze a singoli driver (margine, capital intensity, crescita, leva).
 
-### D. RAPD Stochastic Engine
+### D. Agentic Credit Risk Stochastic Engine
 Input: ultimo bilancio + parametri settoriali + matrice di correlazione + ipotesi macro.
 Output: distribuzione PD (1y, 2y, 3y, cumulata), distribuzione LGD, EL, UL, rating implicito.
 Componenti:
@@ -316,10 +316,10 @@ Funzioni:
 ### F. Back-testing & Comparator
 Input: dataset di imprese (defaulted + performing) con bilanci storici.
 Output: tabella comparativa PD per modello, statistiche di performance (Gini, KS, AUROC), grafici time-series.
-Modelli supportabili: RAPD, Altman Z-score, Merton-style (richiede prezzi).
+Modelli supportabili: Agentic Credit Risk, Altman Z-score, Merton-style (richiede prezzi).
 
 ### G. Reporting & dashboard
-Aggregatore finale che combina valutazione DCF, PD/LGD da RAPD, BMS settoriale e analisi differenziale in un unico report (per audit interno, comitato crediti o fairness opinion).
+Aggregatore finale che combina valutazione DCF, PD/LGD da Agentic Credit Risk, BMS settoriale e analisi differenziale in un unico report (per audit interno, comitato crediti o fairness opinion).
 
 ---
 
@@ -327,11 +327,11 @@ Aggregatore finale che combina valutazione DCF, PD/LGD da RAPD, BMS settoriale e
 
 Considerazioni generali per chi implementerà la suite:
 
-1. **Riclassificazione bilancio**: serve uno schema unico (riclassificato gestionale) condiviso da BMS, DCF e RAPD. Le voci minime: Ricavi, Costi operativi, EBITDA, EBIT, NOPAT, Capex, NFA, NWC, NIC, Debito, Cash, Equity.
-2. **Capital cash flow**: l'OCF di Ruback è la formulazione su cui sono allineati sia il DCF a TV coerente sia il RAPD. Evitare di mischiarlo con FCFF tradizionale (che usa wacc dopo tasse).
-3. **WACC**: per RAPD si usa il **pre-tax WACC** perché il tax shield è già nel cash flow (capital cash flow). Per il DCF "classico" del BMS si può usare l'after-tax WACC se si usa FCFF puro — ma è preferibile uniformare.
-4. **Distribuzioni Weibull e correlazioni**: i parametri standard di RAPD sono un buon default ma vanno tarati sul settore reale; conviene tenerli come configurabili (non hard-coded).
-5. **Coerenza temporale**: il BMS deve essere costruito sulle stesse annualità su cui si tarano media/varianza delle distribuzioni Weibull del RAPD per la stessa azienda.
+1. **Riclassificazione bilancio**: serve uno schema unico (riclassificato gestionale) condiviso da BMS, DCF e Agentic Credit Risk. Le voci minime: Ricavi, Costi operativi, EBITDA, EBIT, NOPAT, Capex, NFA, NWC, NIC, Debito, Cash, Equity.
+2. **Capital cash flow**: l'OCF di Ruback è la formulazione su cui sono allineati sia il DCF a TV coerente sia il Agentic Credit Risk. Evitare di mischiarlo con FCFF tradizionale (che usa wacc dopo tasse).
+3. **WACC**: per Agentic Credit Risk si usa il **pre-tax WACC** perché il tax shield è già nel cash flow (capital cash flow). Per il DCF "classico" del BMS si può usare l'after-tax WACC se si usa FCFF puro — ma è preferibile uniformare.
+4. **Distribuzioni Weibull e correlazioni**: i parametri standard di Agentic Credit Risk sono un buon default ma vanno tarati sul settore reale; conviene tenerli come configurabili (non hard-coded).
+5. **Coerenza temporale**: il BMS deve essere costruito sulle stesse annualità su cui si tarano media/varianza delle distribuzioni Weibull del Agentic Credit Risk per la stessa azienda.
 6. **Validazione**: per ogni valutazione DCF il sistema dovrebbe stampare automaticamente i check di coerenza del TV (è la lezione dell'articolo n. 66 — il 10% dei report era incoerente).
 
 ---

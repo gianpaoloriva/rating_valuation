@@ -1,11 +1,11 @@
-"""Tests for rating_valuation.rapd.debt_solver."""
+"""Tests for rating_valuation.agentic_credit_risk.debt_solver."""
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from rating_valuation.rapd.debt_solver import (
+from rating_valuation.agentic_credit_risk.debt_solver import (
     interest_expense,
     operating_cash_flow,
     simulate_period_scalar,
