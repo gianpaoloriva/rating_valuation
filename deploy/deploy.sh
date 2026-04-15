@@ -48,7 +48,7 @@ ECR_REPO="rating-valuation"
 SERVICE_ARN="arn:aws:ecs:${AWS_REGION}:${AWS_ACCOUNT}:service/default/rating-valuation"
 EXECUTION_ROLE_ARN="arn:aws:iam::${AWS_ACCOUNT}:role/ecsTaskExecutionRole"
 ECR_URI="${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
-SERVICE_URL="https://ra-85a099a2598346a489373514c46923a8.ecs.eu-west-1.on.aws"
+SERVICE_URL="https://ra-936aedd94756458aa6c55bda4e9c13ba.ecs.eu-west-1.on.aws"
 NO_WAIT="${1:-}"
 
 echo "==> Authenticating to ECR..."
