@@ -283,7 +283,7 @@ Ogni documento ha un ruolo preciso — partire da qui per capire cosa leggere:
 | [`TODO.md`](TODO.md) | Stato di sviluppo e backlog con priorità | Chi pianifica gli interventi |
 | [`data/schema.md`](data/schema.md) | Schema autoritativo dei CSV (colonne, unità, invarianti) | Chi prepara i dati |
 | [`data/mapping_iv_directive.md`](data/mapping_iv_directive.md) | Mapping IV Direttiva (AIDA) → schema e decisioni di riclassificazione del dataset reale | Chi fa onboarding di bilanci reali |
-| [`Capitolo_doc.md`](Capitolo_doc.md) | Capitolo editoriale: architettura, capability e fondamenti (per pubblicazione) | Lettori del Quaderno |
+| [`docs/Capitolo_doc.md`](docs/Capitolo_doc.md) | Capitolo editoriale: architettura, capability e fondamenti (per pubblicazione) | Lettori del Quaderno |
 | [`CLAUDE.md`](CLAUDE.md) | Guida all'architettura per agenti Claude Code | Sviluppo assistito da AI |
 
 ## Struttura del repository
@@ -293,7 +293,6 @@ rating_valuation/
 ├── README.md                      questo file — punto d'ingresso
 ├── requirements.md                prerequisiti di installazione ed esecuzione
 ├── overview.md                    sintesi completa dei 3 paper + quadro integrato
-├── Capitolo_doc.md                capitolo editoriale sulla suite
 ├── CLAUDE.md                      guida all'architettura per agenti Claude Code
 ├── TODO.md                        stato sviluppo + backlog post-audit
 ├── data/                          dataset principale (reale AIDA) + schema + ETL
@@ -306,7 +305,7 @@ rating_valuation/
 ├── tests/                         pytest test suite
 ├── examples/                      script end-to-end di esempio
 ├── deploy/                        deploy AWS ECS Express (deploy.sh)
-├── docs/                          PDF originali dei 3 paper di riferimento
+├── docs/                          PDF dei 3 paper + capitolo editoriale (Capitolo_doc.md)
 └── .claude/agents/                subagent specializzati per analisi approfondite
 ```
 

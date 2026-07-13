@@ -95,5 +95,7 @@ data/ (CSVs) ──► common/data_loader ──► domain modules ──► app
 - `overview.md` — full theoretical synthesis of the three papers, all formulas, integration diagram, implementation notes. Referenced by README, Dockerfile, Streamlit UI, `data/schema.md`, `src/rating_valuation/__init__.py`, and by four of the six subagents — do not delete or rename.
 - `TODO.md` — single source of truth for **both** completed functionality (replaces the old README "Stato di sviluppo" section) and the post-audit backlog of formula discrepancies vs the reference papers. P1 items have quantitative impact on results and should be prioritized; P3 items only matter if reproducing the RAPD paper's Section 5 backtesting.
 - `data/schema.md` — authoritative CSV schema (column names, units, invariants, real-data conventions).
-- `docs/` — original PDFs of the three reference papers (`2008 n.-65 Bilancio Madio Standard.pdf`, `2008 n.-66 Calcolo del Terminal Value.pdf`, `RAPD.pdf`).
-- `README.md` — C-level executive summary (use cases, deliverables, methodology) — not an implementation reference.
+- `data/mapping_iv_directive.md` — IV Direttiva (AIDA) → schema mapping and the reclassification decisions behind the real dataset (10% financial-fixed-assets outlier threshold, interest proxy, residual NWC).
+- `docs/` — original PDFs of the three reference papers (`2008 n.-65 Bilancio Madio Standard.pdf`, `2008 n.-66 Calcolo del Terminal Value.pdf`, `RAPD.pdf`) plus `Capitolo_doc.md`, the editorial chapter about the suite (user's manuscript for publication — update facts when they drift, preserve its voice).
+- `requirements.md` — full prerequisites for installing and running the suite (local/Docker, data requirements, pre-flight checklist, troubleshooting) — keep in sync when commands or datasets change.
+- `README.md` — C-level executive summary (use cases, deliverables, methodology) with the documentation map — not an implementation reference.
