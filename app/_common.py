@@ -7,6 +7,7 @@ formatting helpers. All heavy lifting is delegated to the
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -14,13 +15,14 @@ import streamlit as st
 
 from rating_valuation.common.data_loader import DataBundle, load_all
 
-
 # -----------------------------------------------------------------------------
 # Paths
 # -----------------------------------------------------------------------------
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DATA_DIR = REPO_ROOT / "data"
+# data/ = dataset principale (reale, AIDA); override con RV_DATA_DIR
+# (es. RV_DATA_DIR=data/synthetic per la demo sul dataset sintetico)
+DATA_DIR = Path(os.environ.get("RV_DATA_DIR", REPO_ROOT / "data"))
 
 
 # -----------------------------------------------------------------------------

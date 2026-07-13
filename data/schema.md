@@ -128,8 +128,15 @@ Le conversioni derivate (Z-score → rating → PD, CDS spread → PD) sono gest
 
 ## 5. Convenzioni per dati reali
 
-Quando si passa da fake a dati reali:
+**Da luglio 2026 i CSV in `data/` sono dati reali** (AIDA, ATECO 4672, 2020–2024), prodotti
+da `data/etl/aida_to_companies.py` a partire dagli export grezzi in `data/real/`. Il mapping
+IV Direttiva → schema e le decisioni di riclassificazione (soglia outlier 10% sulle
+immobilizzazioni finanziarie, oneri finanziari come saldo netto, NWC residuale) sono
+documentati in `data/mapping_iv_directive.md`. La fixture sintetica per test/demo è in
+`data/synthetic/` (rigenerabile con `data/generators/seed_companies.py`).
+
+Regole generali per qualunque dataset reale:
 1. Mantenere lo stesso schema (stessi nomi campo, stessa unità).
-2. Aggiungere un campo `data_source` in coda a `companies.csv` per tracciare provenienza (es. `aida`, `bloomberg`, `orbis`).
-3. Se la riclassificazione parte da bilancio IV Direttiva, documentare nel commit il mapping voci → campi dello schema (una nota in `data/mapping_iv_directive.md`).
+2. Aggiungere un campo `data_source` in coda a `companies.csv` per tracciare provenienza (es. `aida`, `bloomberg`, `orbis`) — entrambi i dataset correnti lo hanno.
+3. Se la riclassificazione parte da bilancio IV Direttiva, documentare il mapping voci → campi dello schema in `data/mapping_iv_directive.md`.
 4. I tool non devono mai modificare i CSV in place; eventuali aggregazioni vanno in `data/processed/`.

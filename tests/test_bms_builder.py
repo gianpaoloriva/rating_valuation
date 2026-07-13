@@ -12,8 +12,7 @@ from rating_valuation.bms.builder import (
     BMSResult,
     build_bms_timeseries,
 )
-from rating_valuation.common.data_loader import load_companies, peer_sample
-
+from rating_valuation.common.data_loader import SYNTHETIC_DATA_DIR, load_companies, peer_sample
 
 # -----------------------------------------------------------------------------
 # Fixtures
@@ -22,7 +21,7 @@ from rating_valuation.common.data_loader import load_companies, peer_sample
 
 @pytest.fixture(scope="module")
 def companies() -> pd.DataFrame:
-    return load_companies()
+    return load_companies(SYNTHETIC_DATA_DIR / "companies.csv")
 
 
 @pytest.fixture

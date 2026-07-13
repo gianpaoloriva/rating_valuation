@@ -18,7 +18,10 @@ The three tools share the same cash-flow convention: **capital cash flow (Ruback
 # Install (editable, dev + app extras)
 pip install -e ".[dev,app]"
 
-# Regenerate the fake dataset (fixed seed → idempotent)
+# Regenerate the PRIMARY dataset (real AIDA data → data/*.csv, deterministic)
+python3 data/etl/aida_to_companies.py
+
+# Regenerate the synthetic fixture (fixed seed → idempotent, data/synthetic/)
 python3 data/generators/seed_companies.py
 
 # Test suite (pytest is configured via pyproject.toml: testpaths=tests, pythonpath=src)
@@ -32,10 +35,15 @@ pytest --cov=rating_valuation             # with coverage
 ruff check src tests app
 
 # Streamlit dashboard (multi-page, pages auto-discovered from app/pages/)
-streamlit run app/Rating_Valuation_Suite.py
+streamlit run app/Rating_Valuation_Suite.py                          # real data (default)
+RV_DATA_DIR=data/synthetic streamlit run app/Rating_Valuation_Suite.py  # synthetic demo
 
 # Docker
-docker compose up --build                 # → http://localhost:8501
+docker compose up --build                 # → http://localhost:8501 (mounts ./data read-only)
+
+# Deploy to AWS (ECS Express, eu-west-1 — ECR repo & service already provisioned)
+./deploy/deploy.sh                        # build linux/amd64, push to ECR, update service
+./deploy/deploy.sh --no-wait              # same, without polling for RUNNING
 ```
 
 Requires Python >= 3.11. Runtime deps: `pandas`, `numpy`, `scipy`. App extras: `streamlit`, `plotly`.
@@ -56,14 +64,14 @@ data/ (CSVs) ──► common/data_loader ──► domain modules ──► app
                                        backtest/
 ```
 
-- **`data/`** — single source of truth. Four CSVs with a strict schema documented in `data/schema.md`: `companies.csv` (reclassified balance sheets, one row per company×year), `sectors.csv` (GICS sub-industry → beta unlevered + Weibull shapes + correlation matrix), `macro.csv` (country×year risk-free, MRP, nominal GDP growth 5y avg), `rating_master_scale.csv` (S&P rating ↔ PD 1y from Montesi/Papiro Appendix A). All CSVs use `,` separator, UTF-8, `.` decimal; monetary values in **millions of the row's `currency`**; rates and percentages as **decimals** (0.28 = 28%).
+- **`data/`** — single source of truth. Four CSVs with a strict schema documented in `data/schema.md`: `companies.csv` (reclassified balance sheets, one row per company×year), `sectors.csv` (GICS sub-industry → beta unlevered + Weibull shapes + correlation matrix), `macro.csv` (country×year risk-free, MRP, nominal GDP growth 5y avg), `rating_master_scale.csv` (S&P rating ↔ PD 1y from Montesi/Papiro Appendix A). All CSVs use `,` separator, UTF-8, `.` decimal; monetary values in **millions of the row's `currency`**; rates and percentages as **decimals** (0.28 = 28%). Since July 2026 the CSVs in `data/` are the **real AIDA dataset** (277 Italian metals wholesalers, ATECO 4672, FY2020–2024, target `trafer_spa`; raw xlsx in `data/real/`, produced by `data/etl/aida_to_companies.py`, mapping documented in `data/mapping_iv_directive.md`). The deterministic synthetic fixture lives in `data/synthetic/` (loaders expose it as `SYNTHETIC_DATA_DIR`) and is what the test suite runs on.
 - **`src/rating_valuation/common/`** — cross-cutting utilities: `data_loader` (typed CSV loaders + `peer_sample()` / `target_row()` selectors + schema validation), `financial` (WACC, discount factors, Gordon perpetuity, ROIC), `invariants` (balance-sheet integrity checks: `ebitda==rev-opcost`, `nic==nfa+nwc`, `net_debt==gross_debt-cash`, `equity==nic-net_debt`).
 - **`src/rating_valuation/bms/`** — `BMSBuilder` + `build_bms_timeseries`. Equal-weight mean of normalized shares; returns a `BMSResult` dataclass that also carries the naive line-by-line sum to expose the size-distortion effect. Default minimum sample threshold is 20 peers (paper Scarano/Brughera) — below this `below_min_sample=True` is set but no error is raised.
 - **`src/rating_valuation/dcf/`** — `two_stage.py` (standard Gordon + coherent TV with `(1 - g/ROIC_NI)` reinvestment adjustment), `three_stage.py` (geometric ROIC→WACC convergence over stadio 2, then `TV = NOPAT/wacc`), `coherence.py` (flags TVs where `g > g_PIL`, `h_T = g/ROIC > 1`, or TV weight is implausible — the "University of Bergamo" quality check).
 - **`src/rating_valuation/agentic_credit_risk/`** — four files:
   - `stochastic.py` — Weibull sampler with `StochasticParameters` carrying autocorr + cross-correlations; uses copula for joint draws.
   - `debt_solver.py` — closed-form recursive debt `D_t` (eq. [7]) and `simulate_period_vectorized()` which implements both the clamped-debt case and the **eq. [6] dynamic cash accumulation** when debt would go negative.
-  - `credit_metrics.py` — aggregates the Monte Carlo output into yearly default frequency, marginal PD, cumulative PD, LGD, EL, UL.
+  - `credit_metrics.py` — aggregates the Monte Carlo output into yearly default frequency, marginal PD, cumulative PD, LGD, EL, UL. Known issue (TODO.md, P2): on deeply distressed targets (simulated EV ≈ 0) LGD can exceed EAD and the mean recovery rate goes negative — clip pending; PD is unaffected.
   - `simulator.py` — orchestrator: `AgenticCreditRiskSimulator.from_company(row, sectors, macro)` factory builds an `InitialState` (with `wacc` = **pre-tax** CAPM) + `StochasticParameters` from the reference CSVs, then `.run(seed=42)` vectorizes across `n_trials=20_000` × `n_years=3` (paper defaults). EV is computed per trial per period from discounted future OCFs + a perpetuity on the last NOPAT.
 - **`src/rating_valuation/differential/analyzer.py`** — target vs IMS decomposition: separates margin, capital intensity, growth and leverage drivers.
 - **`src/rating_valuation/rating/mapper.py`** — `RatingLookup` (master scale, interpolated on `log(PD)`), `PD → rating` and reverse, `CDS → PD = 1 - exp(-CDS/LGD)` with LGD=0.60, and Altman Z-score → rating via `ALTMAN_Z_BUCKETS`. Also `altman_z_double_prime_non_manufacturing()` for Italian PMI.
@@ -79,7 +87,7 @@ data/ (CSVs) ──► common/data_loader ──► domain modules ──► app
 - **TV coherence check must run on every valuation** (lesson from Scarano/Di Napoli: ~10% of analyst reports had incoherent TV). `dcf/coherence.py` is called by the dashboard page and should be invoked in any programmatic DCF workflow.
 - **Sign flip for EBITDA margin correlations**: the Montesi/Papiro paper parametrizes on `OpCost/Sales`, our simulator uses `EBITDA margin = 1 - OpCost/Sales`, so `corr_sales_opcosts` and `corr_nfa_opcosts` are flipped in sign inside `AgenticCreditRiskSimulator.from_company`.
 - **Fiscal year single-year constraint**: `BMSBuilder` requires a single `fiscal_year` in the input — filter upstream with `peer_sample(companies, sub_industry, fiscal_year=YYYY)` or pass `fiscal_year=` to the constructor. Multi-year analysis goes through `build_bms_timeseries()`.
-- **`companies.csv` contains both peers and target**: `is_target=1` marks the subject of the valuation; `peer_sample()` drops it by default (`exclude_target=True`). The current fake dataset has 15 peers + 1 target (`riva_meccanica`) in `Industrial Machinery` for 2022–2024.
+- **`companies.csv` contains both peers and target**: `is_target=1` marks the subject of the valuation; `peer_sample()` drops it by default (`exclude_target=True`). The primary (real) dataset has 276 peers + 1 target (`trafer_spa`, randomly drawn with seed 42) in `Metals Wholesale (ATECO 4672)` for 2020–2024; the synthetic fixture in `data/synthetic/` has 15 peers + 1 target (`riva_meccanica`) in `Industrial Machinery` for 2022–2024. Real-data caveat: the credit simulator requires a positive expected EBITDA margin — companies with operating losses must be filtered before calling `from_company()`.
 - **Data loaders validate schema**: any real dataset must preserve column names and units exactly; loaders raise `SchemaError` on missing columns. Invariant checks in `common/invariants.py` enforce balance-sheet consistency with a default tolerance of 0.01 (in the CSV's monetary unit).
 
 ### Reference documentation

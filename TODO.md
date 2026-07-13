@@ -2,7 +2,7 @@
 
 Tracker unificato delle funzionalità completate e delle correzioni fatte sul codice dopo l'audit del 2026-04-08 che ha confrontato linea per linea le formule implementate con i paper di riferimento.
 
-Ultimo aggiornamento: 2026-04-08 — tutte le voci P1-P4 dell'audit sono state risolte o marcate come "primitive disponibili". Test suite: **183 test passati in ~1s** (152 preesistenti + 31 nuovi).
+Ultimo aggiornamento: 2026-07-13 — onboarding del dataset reale AIDA (ATECO 4672) come dataset principale; sintetico spostato in `data/synthetic/`. Test suite: **188 test passati in ~1s** (183 + 5 guardie sul dataset reale in `tests/test_real_dataset.py`).
 
 ---
 
@@ -96,8 +96,13 @@ Queste integrazioni sono follow-up e richiederanno test di regressione quantitat
 - [ ] Esporre `roic_marginal_decay_base` e `gdp_nominal_5y_avg` nella pagina `2_DCF_Valuation.py`.
 - [ ] Visualizzare il `coherence_report` integrato di `ThreeStageResult` direttamente sotto il risultato numerico.
 
+### Credit metrics — robustezza numerica
+
+- [ ] **Clippare LGD e recovery rate in `credit_metrics.py`** (emerso il 2026-07-13 sul dataset reale, target `trafer_spa`). Sui trial in cui l'EV simulato va vicino a zero o negativo, la LGD supera l'EAD (`lgd_mean` > 1× EAD) e il recovery rate diventa negativo (−46.75% mostrato in dashboard, fino a −6.5e6 su singoli trial per divisione per EV ≈ 0). Fix proposto: `LGD = min(LGD, EAD)` per trial (recovery floor a 0) e guardia sul denominatore nel recovery medio; aggiungere test di regressione su un target distressed. Priorità P2: non altera la PD, ma EL/UL e recovery esposti al comitato crediti sono fuori scala sui casi estremi.
+
 ### Dati reali
 
-- [ ] Documentare in `data/mapping_iv_directive.md` il mapping IV Direttiva → schema `companies.csv` per l'onboarding di bilanci reali italiani (cfr. `data/schema.md` Sezione 5).
-- [ ] Estendere `sectors.csv` con i parametri di settore italiani reali oltre Industrial Machinery.
+- [x] Documentare in `data/mapping_iv_directive.md` il mapping IV Direttiva → schema `companies.csv` — **fatto 2026-07-13** con l'onboarding del dataset AIDA ATECO 4672 (277 società, 2020–2024, ETL `data/etl/aida_to_companies.py`; il dataset reale è ora il principale in `data/`, il sintetico è in `data/synthetic/`).
+- [x] Estendere `sectors.csv` con parametri di settore italiani reali oltre Industrial Machinery — **fatto 2026-07-13**: riga `Metals Wholesale (ATECO 4672)` (beta unlevered 0.75 Damodaran, shape Weibull default paper). Le stime macro IT 2020–2024 in `macro.csv` sono da fonti pubbliche approssimate: raffinare per valutazioni puntuali.
+- [ ] Filtro/gestione a monte delle società con EBITDA atteso negativo per il simulatore Agentic Credit Risk (~19 società nel FY2024 reale: oggi `from_company()` solleva errore).
 - [ ] Eseguire il backtest Sezione 5 del paper RAPD sul sample storico, ora che le estensioni Appendice A sono disponibili.

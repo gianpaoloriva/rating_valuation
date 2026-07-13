@@ -8,12 +8,12 @@ from rating_valuation.agentic_credit_risk.simulator import (
     AgenticCreditRiskResult,
     AgenticCreditRiskSimulator,
 )
-from rating_valuation.common.data_loader import load_all, target_row
+from rating_valuation.common.data_loader import SYNTHETIC_DATA_DIR, load_all, target_row
 
 
 @pytest.fixture(scope="module")
 def bundle():
-    return load_all()
+    return load_all(SYNTHETIC_DATA_DIR)
 
 
 def test_simulator_builds_from_company(bundle):

@@ -197,7 +197,7 @@ Il Differential Analyzer scompone il premio/sconto del target rispetto al BMS in
 
 La somma dei 4 contributi non coincide mai esattamente con il gap totale di equity value (gli effetti interagiscono), ma le direzioni dei driver dicono dove il target batte o perde contro il settore.
 
-**Esempio dataset demo**: Riva Meccanica SpA ha margine 17% vs settore 14%, crescita 7% vs 4.5%, leva 34% vs 41%. L'analisi differenziale attribuisce il premio principalmente a margine (+8%) e crescita (+5%), con un contributo minore dalla minore leva. Questo dà al comitato un appiglio operativo: "paghiamo il premio perché il management ha dimostrato di difendere il margine sopra la media, non perché rischia di più".
+**Esempio dataset sintetico** (`data/synthetic/`): Riva Meccanica SpA ha margine 17% vs settore 14%, crescita 7% vs 4.5%, leva 34% vs 41%. L'analisi differenziale attribuisce il premio principalmente a margine (+8%) e crescita (+5%), con un contributo minore dalla minore leva. Questo dà al comitato un appiglio operativo: "paghiamo il premio perché il management ha dimostrato di difendere il margine sopra la media, non perché rischia di più".
 
 ### Quando fidarsi e quando no
 
@@ -221,13 +221,16 @@ La somma dei 4 contributi non coincide mai esattamente con il gap totale di equi
 # Install in editable mode con dev + app extras
 pip install -e ".[dev,app]"
 
-# Genera il fake dataset (16 aziende × 3 anni, seed fisso)
+# Rigenera il dataset principale (reale, da export AIDA in data/real/)
+python3 data/etl/aida_to_companies.py
+
+# Rigenera la fixture sintetica per test/demo (16 aziende × 3 anni, seed fisso)
 python3 data/generators/seed_companies.py
 
 # Test suite
 pytest
 
-# Dashboard Streamlit
+# Dashboard Streamlit (dati reali; RV_DATA_DIR=data/synthetic per la demo sintetica)
 streamlit run app/Rating_Valuation_Suite.py
 ```
 
@@ -242,16 +245,27 @@ Il container è basato su `python:3.11-slim`, gira come non-root ed espone un he
 
 ---
 
-## Dataset demo
+## Dataset
 
-`data/companies.csv` contiene 16 aziende × 3 anni (2022–2024) del settore **Industrial Machinery** italiano:
+### Dataset principale: dati reali AIDA (`data/*.csv`)
 
-- 15 peer di settore (per il BMS)
-- 1 target: **Riva Meccanica SpA** (`company_id = riva_meccanica`)
+Da luglio 2026 il dataset principale della suite è reale: **277 società italiane del commercio all'ingrosso di metalli (ATECO 4672)**, esercizi 2020–2024, estratte da AIDA (Bureau van Dijk) con filtro ricavi 2024 tra 5 e 20 M€ e sede in Nord/Centro Italia. Gli export grezzi sono in `data/real/20XX-ME.xlsx`; l'ETL `data/etl/aida_to_companies.py` li riclassifica e scrive i CSV conformi allo schema direttamente in `data/`.
 
-Il target è costruito per posizionarsi sopra la media del settore (margine 17% vs ~14%, crescita 7% vs ~4.5%, leva 34% vs ~41%), in modo da produrre un'analisi differenziale interessante come caso d'uso dimostrativo.
+**Decisioni di riclassificazione** (concordate con il gruppo di lavoro, dettaglio completo in `data/mapping_iv_directive.md`):
 
-Per sostituire il dataset demo con dati reali basta rispettare lo schema documentato in `data/schema.md` (stessi nomi colonna, stesse unità: monetari in milioni di valuta, tassi come decimali). Il sistema valida lo schema automaticamente al caricamento.
+1. **Outlier per immobilizzazioni finanziarie**: le società con partecipazioni/crediti finanziari immobilizzati **> 10% del totale attivo in almeno un anno** sono escluse dal campione (43 su 320). Motivazione: quelle poste non generano EBITDA e distorcerebbero ROIC, intensità di capitale del BMS e distribuzione NFA/Ricavi del Monte Carlo. Per le società rimaste, le immobilizzazioni finanziarie (ormai marginali) restano nel capitale investito.
+2. **Oneri finanziari**: AIDA espone solo il saldo netto della gestione finanziaria; `interest_expense` è il saldo negativo (proxy, oneri lordi non disponibili).
+3. **NWC come residuo**: `NWC = NIC − NFA` con `NIC = PN + PFN`, così TFR e fondi (non esposti dall'export) restano impliciti e gli invarianti di bilancio chiudono per costruzione (0 violazioni su 1.329 bilanci).
+4. **Target**: estratto casualmente con seed fisso (42) tra le società con panel 2020–2024 completo → **TRAFER SPA** (`company_id = trafer_spa`). Nota: il sorteggio ha selezionato un credito debole (ricavi da 20,7 a 7,5 M€ tra 2022 e 2024, PD simulata a 1 anno ≈ 93%, rating implicito C/D) — un caso realistico per il comitato crediti; per un target diverso basta cambiare `TARGET_SEED` nell'ETL.
+5. **Chiave settoriale**: `gics_sub_industry = "Metals Wholesale (ATECO 4672)"` coerente tra `companies.csv` e `sectors.csv`; beta unlevered 0,75 (Damodaran, Trading Companies & Distributors Europa), shape Weibull di default dal paper RAPD; macro IT 2020–2024 da fonti pubbliche (stime da raffinare per valutazioni puntuali).
+
+**Limite noto**: il simulatore di credito richiede un margine EBITDA atteso positivo; sulle ~19 società 2024 in perdita operativa `from_company()` solleva errore — vanno filtrate a monte.
+
+### Dataset sintetico per test e demo (`data/synthetic/*.csv`)
+
+La fixture deterministica storica resta disponibile: 16 aziende × 3 anni (2022–2024) del settore **Industrial Machinery**, 15 peer + 1 target (**Riva Meccanica SpA**, costruita sopra la media di settore per un'analisi differenziale dimostrativa). Si rigenera con `python3 data/generators/seed_companies.py` ed è il dataset su cui gira la test suite. Per usarla nella dashboard: `RV_DATA_DIR=data/synthetic streamlit run app/Rating_Valuation_Suite.py`.
+
+Qualunque nuovo dataset reale deve rispettare lo schema documentato in `data/schema.md` (stessi nomi colonna, stesse unità: monetari in milioni di valuta, tassi come decimali). Il sistema valida lo schema automaticamente al caricamento.
 
 ---
 
@@ -262,7 +276,11 @@ rating_valuation/
 ├── overview.md                    sintesi completa dei 3 paper + quadro integrato
 ├── CLAUDE.md                      guida all'architettura per agenti Claude Code
 ├── TODO.md                        stato sviluppo + backlog post-audit
-├── data/                          dataset CSV normalizzati + schema + generatori
+├── data/                          dataset principale (reale AIDA) + schema + ETL
+│   ├── real/                      export AIDA grezzi (xlsx) + benchmark GDO separato
+│   ├── etl/                       ETL AIDA → CSV schema (aida_to_companies.py)
+│   ├── synthetic/                 fixture sintetica deterministica (test/demo)
+│   └── generators/                generatore della fixture sintetica
 ├── src/rating_valuation/          libreria Python (common, bms, dcf, agentic_credit_risk, rating, backtest)
 ├── app/                           dashboard Streamlit multi-page
 ├── tests/                         pytest test suite

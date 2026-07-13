@@ -1,7 +1,2 @@
 gics_sector,gics_sub_industry,beta_unlevered,weibull_revenues_shape,weibull_opcosts_shape,weibull_nfa_shape,weibull_nwc_shape,autocorr_revenues,autocorr_opcosts,autocorr_nfa,autocorr_nwc,corr_sales_opcosts,corr_nfa_opcosts,corr_sales_nfa,corr_sales_nwc
-Industrials,Industrial Machinery,0.95,2.0,3.5,3.5,3.0,0.20,0.30,0.50,0.40,-0.40,-0.20,0.20,-0.30
-Industrials,Construction & Engineering,1.05,2.0,3.5,3.5,3.0,0.20,0.30,0.50,0.40,-0.40,-0.20,0.20,-0.30
-Industrials,Electrical Components & Equipment,1.00,2.0,3.5,3.5,3.0,0.20,0.30,0.50,0.40,-0.40,-0.20,0.20,-0.30
-Consumer Discretionary,Apparel Manufacturers,0.85,2.0,3.5,3.5,3.0,0.20,0.30,0.50,0.40,-0.40,-0.20,0.20,-0.30
-Consumer Staples,Packaged Foods & Meats,0.65,2.0,3.5,3.5,3.0,0.20,0.30,0.50,0.40,-0.40,-0.20,0.20,-0.30
-Information Technology,IT Services,1.10,2.0,3.5,3.5,3.0,0.20,0.30,0.50,0.40,-0.40,-0.20,0.20,-0.30
+Industrials,Metals Wholesale (ATECO 4672),0.75,2.0,3.5,3.5,3.0,0.2,0.3,0.5,0.4,-0.4,-0.2,0.2,-0.3

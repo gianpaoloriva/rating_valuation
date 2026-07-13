@@ -5,7 +5,12 @@ from __future__ import annotations
 import pytest
 
 from rating_valuation.bms.builder import BMSBuilder
-from rating_valuation.common.data_loader import load_companies, peer_sample, target_row
+from rating_valuation.common.data_loader import (
+    SYNTHETIC_DATA_DIR,
+    load_companies,
+    peer_sample,
+    target_row,
+)
 from rating_valuation.differential.analyzer import (
     DEFAULT_INDICATORS,
     DifferentialAnalyzer,
@@ -16,14 +21,14 @@ from rating_valuation.differential.analyzer import (
 
 @pytest.fixture(scope="module")
 def bms_2024():
-    df = load_companies()
+    df = load_companies(SYNTHETIC_DATA_DIR / "companies.csv")
     peers = peer_sample(df, "Industrial Machinery", fiscal_year=2024)
     return BMSBuilder(peers, min_sample_size=10).build()
 
 
 @pytest.fixture(scope="module")
 def target_2024():
-    df = load_companies()
+    df = load_companies(SYNTHETIC_DATA_DIR / "companies.csv")
     return target_row(df, fiscal_year=2024).iloc[0]
 
 

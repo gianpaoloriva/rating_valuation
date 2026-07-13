@@ -15,14 +15,18 @@ Numbers are internally consistent:
 Run:
     python3 data/generators/seed_companies.py
 Output:
-    data/companies.csv
+    data/synthetic/companies.csv
+
+NB: da luglio 2026 il dataset PRINCIPALE in data/ sono i dati reali AIDA
+(prodotti da data/etl/aida_to_companies.py); questo generatore alimenta solo
+la fixture sintetica per test e demo in data/synthetic/.
 """
 
 from __future__ import annotations
 
 import csv
 import random
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from pathlib import Path
 
 # -----------------------------------------------------------------------------
@@ -38,7 +42,8 @@ GICS_SUB_INDUSTRY = "Industrial Machinery"
 CORPORATE_TAX_RATE = 0.28  # IRES 24% + IRAP ~3.9% semplificato
 COST_OF_DEBT = 0.045
 
-OUTPUT_PATH = Path(__file__).resolve().parent.parent / "companies.csv"
+OUTPUT_PATH = Path(__file__).resolve().parent.parent / "synthetic" / "companies.csv"
+DATA_SOURCE = "synthetic"
 
 
 # -----------------------------------------------------------------------------
@@ -186,6 +191,7 @@ CSV_FIELDS = [
     "cost_of_debt",
     "corporate_tax_rate",
     "employees",
+    "data_source",
 ]
 
 
@@ -264,6 +270,7 @@ def build_row(arc: Archetype, year: int, prev_nfa: float | None, rng: random.Ran
         "cost_of_debt": COST_OF_DEBT,
         "corporate_tax_rate": CORPORATE_TAX_RATE,
         "employees": employees,
+        "data_source": DATA_SOURCE,
     }, nfa
 
 

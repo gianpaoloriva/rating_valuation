@@ -12,8 +12,7 @@ from rating_valuation.backtest import (
     gini_coefficient,
     kolmogorov_smirnov,
 )
-from rating_valuation.common.data_loader import load_all
-
+from rating_valuation.common.data_loader import SYNTHETIC_DATA_DIR, load_all
 
 # -----------------------------------------------------------------------------
 # Metrics
@@ -66,7 +65,7 @@ def test_auroc_nan_when_single_class():
 
 @pytest.fixture(scope="module")
 def bundle():
-    return load_all()
+    return load_all(SYNTHETIC_DATA_DIR)
 
 
 def test_runner_produces_results_for_every_row(bundle):

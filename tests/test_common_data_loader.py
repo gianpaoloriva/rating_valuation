@@ -7,6 +7,7 @@ import pytest
 
 from rating_valuation.common.data_loader import (
     COMPANY_NUMERIC_COLUMNS,
+    SYNTHETIC_DATA_DIR,
     DataBundle,
     SchemaError,
     load_all,
@@ -20,14 +21,14 @@ from rating_valuation.common.data_loader import (
 
 
 def test_load_companies_has_expected_shape():
-    df = load_companies()
+    df = load_companies(SYNTHETIC_DATA_DIR / "companies.csv")
     assert len(df) == 48
     assert df["company_id"].nunique() == 16
     assert sorted(df["fiscal_year"].unique().tolist()) == [2022, 2023, 2024]
 
 
 def test_load_companies_numeric_dtypes():
-    df = load_companies()
+    df = load_companies(SYNTHETIC_DATA_DIR / "companies.csv")
     for col in COMPANY_NUMERIC_COLUMNS:
         assert pd.api.types.is_numeric_dtype(df[col]), f"{col} should be numeric"
     assert df["is_target"].dtype.kind in "iu"
@@ -35,27 +36,27 @@ def test_load_companies_numeric_dtypes():
 
 
 def test_load_companies_target_flag_unique():
-    df = load_companies()
+    df = load_companies(SYNTHETIC_DATA_DIR / "companies.csv")
     targets = df[df["is_target"] == 1]
     assert targets["company_id"].nunique() == 1
     assert targets["company_name"].iloc[0] == "Riva Meccanica SpA"
 
 
 def test_load_sectors_has_default_industrial_machinery():
-    df = load_sectors()
+    df = load_sectors(SYNTHETIC_DATA_DIR / "sectors.csv")
     im = df[df["gics_sub_industry"] == "Industrial Machinery"]
     assert len(im) == 1
     assert 0.5 < im["beta_unlevered"].iloc[0] < 1.5
 
 
 def test_load_macro_italy_years():
-    df = load_macro()
+    df = load_macro(SYNTHETIC_DATA_DIR / "macro.csv")
     italy = df[df["country"] == "IT"]
     assert set(range(2022, 2027)).issubset(set(italy["year"]))
 
 
 def test_load_rating_master_scale_boundaries():
-    df = load_rating_master_scale()
+    df = load_rating_master_scale(SYNTHETIC_DATA_DIR / "rating_master_scale.csv")
     assert df["rating"].iloc[0] == "AAA"
     assert df["rating"].iloc[-1] == "D"
     assert df["pd_1y"].iloc[0] == pytest.approx(0.0)
@@ -65,7 +66,7 @@ def test_load_rating_master_scale_boundaries():
 
 
 def test_load_all_returns_bundle():
-    bundle = load_all()
+    bundle = load_all(SYNTHETIC_DATA_DIR)
     assert isinstance(bundle, DataBundle)
     assert len(bundle.companies) > 0
     assert len(bundle.sectors) > 0
@@ -74,7 +75,7 @@ def test_load_all_returns_bundle():
 
 
 def test_peer_sample_excludes_target():
-    df = load_companies()
+    df = load_companies(SYNTHETIC_DATA_DIR / "companies.csv")
     peers = peer_sample(df, "Industrial Machinery", fiscal_year=2024)
     assert (peers["is_target"] == 0).all()
     assert len(peers) == 15
@@ -82,7 +83,7 @@ def test_peer_sample_excludes_target():
 
 
 def test_target_row_single_year():
-    df = load_companies()
+    df = load_companies(SYNTHETIC_DATA_DIR / "companies.csv")
     tgt = target_row(df, fiscal_year=2024)
     assert len(tgt) == 1
     assert tgt["company_name"].iloc[0] == "Riva Meccanica SpA"
@@ -100,9 +101,7 @@ def test_load_companies_accepts_file_like_object():
     Data Manager page for uploads)."""
     import io
 
-    from rating_valuation.common.data_loader import DEFAULT_DATA_DIR
-
-    raw = (DEFAULT_DATA_DIR / "companies.csv").read_bytes()
+    raw = (SYNTHETIC_DATA_DIR / "companies.csv").read_bytes()
     df = load_companies(io.BytesIO(raw))
     assert len(df) == 48
     assert df["company_id"].nunique() == 16
@@ -111,9 +110,7 @@ def test_load_companies_accepts_file_like_object():
 def test_load_sectors_accepts_file_like_object():
     import io
 
-    from rating_valuation.common.data_loader import DEFAULT_DATA_DIR
-
-    raw = (DEFAULT_DATA_DIR / "sectors.csv").read_bytes()
+    raw = (SYNTHETIC_DATA_DIR / "sectors.csv").read_bytes()
     df = load_sectors(io.BytesIO(raw))
     assert len(df) >= 1
     assert "gics_sub_industry" in df.columns

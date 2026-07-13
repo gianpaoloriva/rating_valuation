@@ -22,7 +22,10 @@ PathLike = Union[Path, str, IO[bytes]]
 
 # repo root = parent of src/ (package installed in editable mode from there)
 _REPO_ROOT = Path(__file__).resolve().parents[3]
+# data/ holds the PRIMARY dataset (real AIDA data, see data/etl/aida_to_companies.py);
+# data/synthetic/ holds the deterministic synthetic fixture used by tests and demos.
 DEFAULT_DATA_DIR = _REPO_ROOT / "data"
+SYNTHETIC_DATA_DIR = _REPO_ROOT / "data" / "synthetic"
 
 COMPANIES_CSV = "companies.csv"
 SECTORS_CSV = "sectors.csv"

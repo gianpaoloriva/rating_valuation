@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import pandas as pd
 import pytest
 
-from rating_valuation.common.data_loader import load_companies
+from rating_valuation.common.data_loader import SYNTHETIC_DATA_DIR, load_companies
 from rating_valuation.common.invariants import (
     assert_invariants,
     check_invariants,
@@ -13,18 +12,18 @@ from rating_valuation.common.invariants import (
 
 
 def test_fake_dataset_passes_all_invariants():
-    df = load_companies()
+    df = load_companies(SYNTHETIC_DATA_DIR / "companies.csv")
     violations = check_invariants(df)
     assert violations == []
 
 
 def test_assert_invariants_no_raise():
-    df = load_companies()
+    df = load_companies(SYNTHETIC_DATA_DIR / "companies.csv")
     assert_invariants(df)  # should not raise
 
 
 def test_detects_ebitda_violation():
-    df = load_companies().copy()
+    df = load_companies(SYNTHETIC_DATA_DIR / "companies.csv").copy()
     # break one row: set ebitda to a wrong value
     idx = df.index[0]
     df.loc[idx, "ebitda"] = df.loc[idx, "ebitda"] + 10
@@ -34,7 +33,7 @@ def test_detects_ebitda_violation():
 
 
 def test_assert_invariants_raises_on_violation():
-    df = load_companies().copy()
+    df = load_companies(SYNTHETIC_DATA_DIR / "companies.csv").copy()
     idx = df.index[0]
     df.loc[idx, "net_invested_capital"] = -1  # clearly wrong
     with pytest.raises(AssertionError, match="invariants violated"):
@@ -42,7 +41,7 @@ def test_assert_invariants_raises_on_violation():
 
 
 def test_tolerance_respected():
-    df = load_companies().copy()
+    df = load_companies(SYNTHETIC_DATA_DIR / "companies.csv").copy()
     idx = df.index[0]
     # nudge below default tolerance (0.01)
     df.loc[idx, "ebitda"] = df.loc[idx, "ebitda"] + 0.005
