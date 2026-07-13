@@ -25,7 +25,7 @@ python3 data/etl/aida_to_companies.py
 python3 data/generators/seed_companies.py
 
 # Test suite (pytest is configured via pyproject.toml: testpaths=tests, pythonpath=src)
-pytest                                    # full suite, ~152 tests, <1s
+pytest                                    # full suite, ~188 tests, <1s
 pytest tests/test_dcf_coherence.py        # single file
 pytest tests/test_dcf_coherence.py::test_name  # single test
 pytest -k "agentic_credit_risk"           # by name pattern

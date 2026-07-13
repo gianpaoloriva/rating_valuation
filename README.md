@@ -215,6 +215,8 @@ La somma dei 4 contributi non coincide mai esattamente con il gap totale di equi
 
 ## Quickstart
 
+Per i prerequisiti completi (hardware, versioni, dati, checklist pre-volo e troubleshooting) vedi [`requirements.md`](requirements.md).
+
 ### Locale
 
 ```bash
@@ -269,11 +271,29 @@ Qualunque nuovo dataset reale deve rispettare lo schema documentato in `data/sch
 
 ---
 
+## Mappa della documentazione
+
+Ogni documento ha un ruolo preciso — partire da qui per capire cosa leggere:
+
+| Documento | Ruolo | Per chi |
+| --- | --- | --- |
+| **README.md** (questo file) | Executive summary, decisioni di design, interpretazione dei risultati, quickstart | Primo contatto, board, comitato |
+| [`requirements.md`](requirements.md) | Prerequisiti completi: hardware, installazione (locale/Docker), dati, checklist pre-volo, troubleshooting | Analista che deve installare ed eseguire |
+| [`overview.md`](overview.md) | Sintesi teorica dei 3 paper: tutte le formule, il quadro integrato, le note implementative | Chi deve capire o difendere la metodologia |
+| [`TODO.md`](TODO.md) | Stato di sviluppo e backlog con priorità | Chi pianifica gli interventi |
+| [`data/schema.md`](data/schema.md) | Schema autoritativo dei CSV (colonne, unità, invarianti) | Chi prepara i dati |
+| [`data/mapping_iv_directive.md`](data/mapping_iv_directive.md) | Mapping IV Direttiva (AIDA) → schema e decisioni di riclassificazione del dataset reale | Chi fa onboarding di bilanci reali |
+| [`Capitolo_doc.md`](Capitolo_doc.md) | Capitolo editoriale: architettura, capability e fondamenti (per pubblicazione) | Lettori del Quaderno |
+| [`CLAUDE.md`](CLAUDE.md) | Guida all'architettura per agenti Claude Code | Sviluppo assistito da AI |
+
 ## Struttura del repository
 
 ```text
 rating_valuation/
+├── README.md                      questo file — punto d'ingresso
+├── requirements.md                prerequisiti di installazione ed esecuzione
 ├── overview.md                    sintesi completa dei 3 paper + quadro integrato
+├── Capitolo_doc.md                capitolo editoriale sulla suite
 ├── CLAUDE.md                      guida all'architettura per agenti Claude Code
 ├── TODO.md                        stato sviluppo + backlog post-audit
 ├── data/                          dataset principale (reale AIDA) + schema + ETL
@@ -285,13 +305,14 @@ rating_valuation/
 ├── app/                           dashboard Streamlit multi-page
 ├── tests/                         pytest test suite
 ├── examples/                      script end-to-end di esempio
+├── deploy/                        deploy AWS ECS Express (deploy.sh)
 ├── docs/                          PDF originali dei 3 paper di riferimento
 └── .claude/agents/                subagent specializzati per analisi approfondite
 ```
 
 ## Stato del progetto
 
-Tutti i tool principali sono a produzione e coperti da una test suite di 152 test che gira in meno di un secondo. L'elenco dettagliato delle funzionalità completate e il backlog delle correzioni aperte (con priorità) sono in [`TODO.md`](TODO.md).
+Tutti i tool principali sono a produzione e coperti da una test suite di 188 test che gira in meno di un secondo. Il dataset principale è reale (AIDA, ATECO 4672) e la dashboard è deployata su AWS ECS. L'elenco dettagliato delle funzionalità completate e il backlog delle correzioni aperte (con priorità) sono in [`TODO.md`](TODO.md).
 
 ---
 

@@ -91,7 +91,7 @@ Il flag `-e` (editable) permette di modificare il codice in `src/` senza dover r
 ### 2.6 Verifica installazione
 
 ```bash
-# Test suite (deve restituire ~152 test passati, < 1 secondo)
+# Test suite (deve restituire ~188 test passati, < 1 secondo)
 pytest
 
 # Smoke test rapido via API
@@ -211,15 +211,23 @@ Una riga per ogni coppia `(country, year)` rilevante per le valutazioni.
 
 Tabella di 22 righe (AAA → D). Già fornita con il repo, valori dal paper RAPD Appendice A. Non va modificata.
 
-### 4.6 Dataset demo già pronto
+### 4.6 Dataset già pronti nel repo
 
-Il repo include un dataset demo: 16 imprese × 3 esercizi (2022–2024) del settore Industrial Machinery italiano (15 peer + 1 target, *Riva Meccanica SpA*). Si rigenera con seed fisso da:
+Il repo include **due dataset completi**, entrambi conformi allo schema:
 
-```bash
-python3 data/generators/seed_companies.py
-```
+- **Dataset principale (reale)** — `data/*.csv`: 277 società italiane del commercio all'ingrosso di metalli (ATECO 4672), esercizi 2020–2024, da export AIDA; target `trafer_spa` (estrazione casuale, seed 42). È quello che libreria e dashboard caricano di default. Si rigenera dagli xlsx grezzi in `data/real/` con:
 
-È utile per fare una prima valutazione end-to-end e prendere confidenza con il flusso prima di sostituirlo con dati reali.
+  ```bash
+  python3 data/etl/aida_to_companies.py
+  ```
+
+  Le regole di riclassificazione sono documentate in `data/mapping_iv_directive.md`.
+
+- **Dataset sintetico (demo/test)** — `data/synthetic/*.csv`: 16 imprese × 3 esercizi (2022–2024) del settore Industrial Machinery (15 peer + 1 target, *Riva Meccanica SpA*). È la fixture deterministica della test suite; per usarlo nella dashboard: `RV_DATA_DIR=data/synthetic streamlit run app/Rating_Valuation_Suite.py`. Si rigenera con seed fisso da:
+
+  ```bash
+  python3 data/generators/seed_companies.py
+  ```
 
 ---
 
@@ -229,7 +237,7 @@ Anche con codice e dati a posto, una valutazione corretta richiede che l'analist
 
 ### 5.1 Riclassificazione del bilancio
 
-I bilanci civilistici italiani (IV Direttiva) e quelli IFRS non sono direttamente nello schema della suite. È richiesta una riclassificazione gestionale che produca:
+I bilanci civilistici italiani (IV Direttiva) e quelli IFRS non sono direttamente nello schema della suite. È richiesta una riclassificazione gestionale — per gli export AIDA esiste già un ETL pronto (`data/etl/aida_to_companies.py`, regole in `data/mapping_iv_directive.md`) — che produca:
 
 - **NIC = NFA + NWC** dove:
   - NFA = immobilizzazioni materiali + immateriali + finanziarie nette − fondo TFR/altri fondi operativi (se non separati)
@@ -293,7 +301,7 @@ Prima di lanciare la prima valutazione:
 - [ ] Python ≥ 3.11 installato (oppure Docker Desktop attivo)
 - [ ] virtualenv creato e attivato
 - [ ] `pip install -e ".[app]"` completato senza errori
-- [ ] `pytest` passa tutti i 152 test in < 1 secondo
+- [ ] `pytest` passa tutti i ~188 test in < 1 secondo
 - [ ] `streamlit run app/Rating_Valuation_Suite.py` apre la dashboard sul browser
 
 **Dati**
@@ -328,7 +336,8 @@ Quando tutte le caselle sono spuntate, la suite è pronta a produrre numeri dife
 | Parametri settore | beta unlevered, Weibull shapes, correlazioni | `data/sectors.csv` |
 | Parametri macro | risk-free, MRP, PIL nominale 5y | `data/macro.csv` |
 | Master scale rating | 22 classi AAA → D, PD 1y | `data/rating_master_scale.csv` (già nel repo) |
-| Dataset demo per provare | 16 imprese Industrial Machinery 2022–2024 | `python3 data/generators/seed_companies.py` |
+| Dataset reale (principale) | 277 imprese ATECO 4672, 2020–2024 | `data/*.csv` (rigenerabile: `python3 data/etl/aida_to_companies.py`) |
+| Dataset sintetico (demo/test) | 16 imprese Industrial Machinery 2022–2024 | `data/synthetic/` (rigenerabile: `python3 data/generators/seed_companies.py`) |
 
 ---
 

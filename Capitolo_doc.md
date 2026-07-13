@@ -63,7 +63,7 @@ I dati di input sono in `data/`, in formato CSV con schema documentato (`data/sc
 
 Lo schema dei CSV è validato dai loader (`common/data_loader.py`): valori monetari espressi sempre in **milioni** della valuta dichiarata, tassi e percentuali in **decimali** (0,28 = 28 %), date come anno fiscale `YYYY`. Le invarianti di bilancio (`common/invariants.py`) verificano `EBITDA = Ricavi − Costi operativi`, `NIC = NFA + NWC`, `Net Debt = Debito lordo − Cassa`, `Equity ≈ NIC − Net Debt`. Una violazione fa fallire il caricamento prima ancora che l'analisi inizi: un errore di riclassificazione non si propaga silenziosamente nei numeri finali.
 
-L'intero codice di dominio è in `src/rating_valuation/`. La dashboard in `app/`. La test suite — 152 test che girano in meno di un secondo — è in `tests/` e copre tutti i moduli, inclusi test specifici di equivalenza algebrica fra formule del codice e formule pubblicate (es. `test_solve_debt_paper_formula_equivalence` per l'equazione [7] del paper RAPD).
+L'intero codice di dominio è in `src/rating_valuation/`. La dashboard in `app/`. La test suite — 188 test che girano in meno di un secondo — è in `tests/` e copre tutti i moduli, inclusi test specifici di equivalenza algebrica fra formule del codice e formule pubblicate (es. `test_solve_debt_paper_formula_equivalence` per l'equazione [7] del paper RAPD) e test di guardia sull'integrità del dataset reale.
 
 ---
 
@@ -127,7 +127,7 @@ Il `verdict` aggregato è `PASS`, `WARNING` o `ERROR`. Un `ERROR` non blocca il 
 
 L'output è una decomposizione che attribuisce a ciascun driver un contributo positivo o negativo al premio (o sconto) del target rispetto al settore. La somma dei quattro contributi non coincide mai esattamente con il gap totale di equity value perché gli effetti interagiscono moltiplicativamente, ma le **direzioni** dei driver dicono al comitato dove l'impresa batte o perde contro il benchmark.
 
-**Esempio dimostrativo (dataset demo).** Il dataset incluso contiene Riva Meccanica SpA (target) confrontata con 15 peer del settore Industrial Machinery. La target ha margine 17 % vs settore 14 %, crescita 7 % vs 4,5 %, leva 34 % vs 41 %. L'analizzatore attribuisce il premio principalmente a margine (+8 %) e crescita (+5 %), con un contributo minore dalla minore leva. Il messaggio operativo per il comitato è: *"il premio è giustificato dalla difesa del margine sopra la media e dalla crescita superiore, non da un'esposizione finanziaria più aggressiva"*.
+**Esempio dimostrativo (dataset sintetico, `data/synthetic/`).** La fixture sintetica inclusa contiene Riva Meccanica SpA (target) confrontata con 15 peer del settore Industrial Machinery. La target ha margine 17 % vs settore 14 %, crescita 7 % vs 4,5 %, leva 34 % vs 41 %. L'analizzatore attribuisce il premio principalmente a margine (+8 %) e crescita (+5 %), con un contributo minore dalla minore leva. Il messaggio operativo per il comitato è: *"il premio è giustificato dalla difesa del margine sopra la media e dalla crescita superiore, non da un'esposizione finanziaria più aggressiva"*.
 
 ### 3.4 Capability 4 — Agentic Credit Risk (Monte Carlo PD forward-looking)
 
@@ -262,9 +262,9 @@ Una violazione fa fallire il caricamento. Questo significa che un dataset reale,
 **Dipendenze runtime minime**: `pandas ≥ 2.0`, `numpy ≥ 1.24`, `scipy ≥ 1.10`. Nessuna libreria di AI/ML, nessuna dipendenza da servizi esterni a runtime.
 **Dipendenze opzionali**: `streamlit ≥ 1.30` e `plotly ≥ 5.18` per la dashboard; `pytest`, `pytest-cov`, `ruff` per lo sviluppo.
 
-**Riproducibilità.** Tutti i risultati Monte Carlo sono prodotti con seed fisso (default `seed=42`); a parità di seed e di input il sistema restituisce gli stessi numeri bit-per-bit. La generazione del fake dataset (`data/generators/seed_companies.py`) è anch'essa idempotente.
+**Riproducibilità.** Tutti i risultati Monte Carlo sono prodotti con seed fisso (default `seed=42`); a parità di seed e di input il sistema restituisce gli stessi numeri bit-per-bit. Sia l'ETL del dataset reale (`data/etl/aida_to_companies.py`) sia il generatore del dataset sintetico (`data/generators/seed_companies.py`) sono idempotenti.
 
-**Test suite.** 152 test che girano in meno di un secondo. Coprono:
+**Test suite.** 188 test che girano in meno di un secondo. Coprono:
 
 - equivalenza algebrica fra formule del codice e formule pubblicate (`test_solve_debt_paper_formula_equivalence`, `test_dcf_coherence_paper_examples`);
 - proprietà delle distribuzioni stocastiche (medie, varianze, correlazioni a target);
@@ -274,7 +274,7 @@ Una violazione fa fallire il caricamento. Questo significa che un dataset reale,
 
 **Dashboard.** Streamlit multi-pagina, scoperta automatica delle pagine per ordine numerico (`1_BMS_Builder`, `2_DCF_Valuation`, `3_Differential_Analysis`, `4_Agentic_Credit_Risk`, `5_Rating_Mapper`, `6_Backtest_Comparator`, `7_Data_Manager`). Il container Docker incluso espone la dashboard sulla porta 8501, gira come utente non-root e dichiara un healthcheck su `/_stcore/health`: pronto per essere deployato in un ambiente IT enterprise standard.
 
-**Dataset demo.** `data/companies.csv` contiene 16 aziende × 3 esercizi (2022–2024) del settore Industrial Machinery italiano: 15 peer e 1 target, **Riva Meccanica SpA**. Il target è costruito per posizionarsi sopra la media del settore, in modo da generare un'analisi differenziale didatticamente interessante. La sostituzione con dati reali — bilanci da AIDA, Bloomberg, Orbis o riclassificati in casa da IV Direttiva — richiede solo il rispetto dello schema CSV documentato; nessuna modifica al codice.
+**Dataset.** Il dataset principale (`data/*.csv`) è **reale**: 277 società italiane del commercio all'ingrosso di metalli (ATECO 4672), esercizi 2020–2024, riclassificate da export AIDA tramite l'ETL `data/etl/aida_to_companies.py` (regole documentate in `data/mapping_iv_directive.md`); il target della valutazione, TRAFER SPA, è estratto casualmente con seed fisso. L'onboarding dei dati reali ha richiesto **zero modifiche al codice di dominio**: è bastato rispettare lo schema CSV documentato — la conferma empirica della tesi architetturale della suite. Resta disponibile in `data/synthetic/` la fixture sintetica (16 aziende Industrial Machinery, target **Riva Meccanica SpA**), usata dalla test suite e come demo didattica.
 
 ---
 
@@ -285,18 +285,18 @@ Per onestà metodologica e per uso responsabile, è importante dichiarare cosa *
 - **Non è un sistema di previsione puntuale**. La PD restituita non dice "questa impresa fallirà nel 5 % dei casi" in senso bayesiano: dice "dati i parametri stocastici del settore e il bilancio attuale, il 5 % degli scenari plausibili porta l'EV sotto il Net Debt entro l'orizzonte". È un *ordering statistico*, non una previsione individuale.
 - **Non sostituisce il giudizio dell'analista**. I check di coerenza (TV, BMS sotto-soglia, varianza Monte Carlo eccessiva) producono *segnali*, non blocchi. La decisione finale resta umana.
 - **Non implementa modelli option-based** (Merton, KMV, DRSK Bloomberg). Il backtest può confrontarli con Agentic Credit Risk se l'utente fornisce i dati di prezzo, ma non li implementa.
-- **Non importa automaticamente bilanci IV Direttiva**. La riclassificazione gestionale è un atto interpretativo che resta a cura dell'analista; lo schema CSV è documentato e il mapping IV Direttiva → schema è materia del prossimo capitolo.
+- **Non importa automaticamente bilanci IV Direttiva arbitrari**. La riclassificazione gestionale è un atto interpretativo che resta a cura dell'analista: per gli export AIDA il repo include un ETL di riferimento (`data/etl/aida_to_companies.py`, regole in `data/mapping_iv_directive.md`), ma ogni nuova fonte richiede le proprie scelte di mapping documentate.
 - **Non è certificata Basel-compliant**. La PD è metodologicamente compatibile con la prospettiva IRB-A (cumulative a 1 anno per il regulatory; multi-anno per il pricing), ma la suite non è auditata da un'autorità di vigilanza. Va integrata in un framework di model risk management interno della banca / del fondo prima dell'uso production.
 
 ---
 
 ## 7. Stato del progetto e roadmap
 
-L'audit linea-per-linea fra codice e paper di riferimento, eseguito ad aprile 2026, ha chiuso tutte le voci di priorità P1–P4 con impatto quantitativo o qualitativo (cfr. `TODO.md`). I follow-up aperti sono:
+L'audit linea-per-linea fra codice e paper di riferimento, eseguito ad aprile 2026, ha chiuso tutte le voci di priorità P1–P4 con impatto quantitativo o qualitativo (cfr. `TODO.md`). A luglio 2026 è stato completato l'onboarding del dataset reale AIDA (ATECO 4672) come dataset principale, con la pubblicazione del mapping IV Direttiva → schema (`data/mapping_iv_directive.md`) e il deploy su AWS ECS. I follow-up aperti sono:
 
 - integrazione delle primitives Capex (`capex_plan.py`) e debt tranches (`debt_tranches.py`) nel loop principale del simulator (richiede test di regressione su dataset reale);
 - esposizione nei pannelli Streamlit dei parametri opt-in dell'Appendice A (`cash_yield`, `payout_ratio`, `debt_floor`, `tax_stochastic`, `collateral_coverage`);
-- pubblicazione del documento `data/mapping_iv_directive.md` per l'onboarding di bilanci IV Direttiva italiani;
+- robustezza numerica delle metriche LGD/recovery sui target in stress estremo (clip LGD ≤ EAD);
 - esecuzione del backtest Sezione 5 del paper RAPD su un sample storico reale, una volta disponibili le estensioni Appendice A integrate.
 
 ---
