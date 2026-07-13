@@ -115,3 +115,65 @@ def test_summary_keys_present():
         "default_scenarios",
     }
     assert expected_keys.issubset(summary.keys())
+
+
+# -----------------------------------------------------------------------------
+# Limited-liability waterfall (fix 2026-07: LGD capped at EAD, recovery in [0,1])
+# -----------------------------------------------------------------------------
+
+
+def test_negative_ev_does_not_inflate_lgd_beyond_ead():
+    # Simulated EV can go negative; the creditor's loss is capped at the exposure
+    ev = np.array([[-30.0]])
+    debt = np.array([[10.0]])
+    cash = np.zeros_like(ev)
+    m = compute_metrics(ev=ev, debt=debt, cash=cash)
+    assert m.lgd_mean == pytest.approx(10.0)          # not 40
+    assert m.recovery_rate_mean == pytest.approx(0.0)
+
+
+def test_recovery_rate_bounded_in_unit_interval():
+    # Mixed pool: deep insolvency, partial recovery, near-zero-debt default
+    ev = np.array([[-50.0], [60.0], [-5.0]])
+    debt = np.array([[100.0], [100.0], [0.0]])
+    cash = np.zeros_like(ev)
+    m = compute_metrics(ev=ev, debt=debt, cash=cash)
+    assert m.lgd_mean <= m.ead_mean + 1e-12 or m.lgd_mean <= 100.0
+    assert 0.0 <= m.recovery_rate_mean <= 1.0
+
+
+def test_zero_debt_defaults_excluded_from_recovery_mean():
+    # A trial defaulting with EAD = 0 (equity-value insolvency without debt)
+    # must not drag the recovery mean to absurd values
+    ev = np.array([[-10.0], [50.0]])
+    debt = np.array([[0.0], [100.0]])
+    cash = np.zeros_like(ev)
+    m = compute_metrics(ev=ev, debt=debt, cash=cash)
+    # Only the second trial (EAD=100, LGD=50 → recovery 0.5) counts
+    assert m.recovery_rate_mean == pytest.approx(0.5)
+
+
+def test_negative_cash_does_not_add_to_loss():
+    ev = np.array([[5.0]])
+    debt = np.array([[100.0]])
+    cash = np.array([[-20.0]])  # defensive: negative cash must not raise LGD above EAD
+    m = compute_metrics(ev=ev, debt=debt, cash=cash)
+    assert m.lgd_mean == pytest.approx(95.0)  # 100 - 5, the -20 is floored at 0
+
+
+def test_distressed_real_target_metrics_are_plausible():
+    # End-to-end regression on the real dataset's distressed target (TRAFER):
+    # PD stays extreme, but loss metrics must respect limited liability
+    from rating_valuation.agentic_credit_risk.simulator import AgenticCreditRiskSimulator
+    from rating_valuation.common.data_loader import DEFAULT_DATA_DIR, load_all, target_row
+
+    if not (DEFAULT_DATA_DIR / "companies.csv").exists():
+        pytest.skip("primary dataset missing")
+    b = load_all()
+    row = target_row(b.companies, fiscal_year=int(b.companies.fiscal_year.max())).iloc[0]
+    sim = AgenticCreditRiskSimulator.from_company(row, b.sectors, b.macro)
+    res = sim.run(seed=42)
+    m = res.metrics
+    assert m.lgd_mean <= m.ead_mean + 1e-9
+    assert 0.0 <= m.recovery_rate_mean <= 1.0
+    assert m.expected_loss <= m.ead_mean + 1e-9

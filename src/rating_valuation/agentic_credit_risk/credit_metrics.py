@@ -6,11 +6,16 @@ this module computes:
     Yearly Default Frequency   — P(EV_t < D_t)                      (unconditional)
     Yearly Marginal Default    — P(default in t | no default in 1..t-1)
     Cumulative PD              — P(default in any year up to t)
-    LGD (per scenario)         — max(0, EAD - EV - CASH)
+    LGD (per scenario)         — clip(EAD_unsecured - max(EV,0) - max(CASH,0), 0, EAD_unsecured)
     LGD summary                — mean, median, std, quantiles
     Expected Loss              — PD × mean(LGD)
     Unexpected Loss            — LGD at a chosen confidence level
-    Recovery rate              — 1 − LGD_mean / EAD_mean
+    Recovery rate              — mean(1 − LGD/EAD) over defaults with material EAD
+
+Limited liability is enforced in the waterfall: a simulated negative EV cannot
+push the loss beyond the unsecured exposure, so LGD ≤ EAD and recovery ∈ [0, 1]
+by construction (distressed targets used to produce LGD > EAD and recovery
+rates of millions of percent when defaulting with near-zero debt).
 
 Reference: Montesi/Papiro (2014), Section 2.3 and eq. [14]-[16].
 """
@@ -20,6 +25,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import numpy as np
+
+# Defaults with EAD at or below this threshold (in the dataset's monetary
+# unit, millions → 1 EUR) carry no meaningful creditor exposure and are
+# excluded from the recovery-rate mean.
+_MATERIAL_EAD = 1e-6
 
 
 # -----------------------------------------------------------------------------
@@ -97,8 +107,9 @@ def compute_metrics(
     collateral_coverage : float
         Share of the EAD covered by secured / senior collateral. Applied to
         the LGD calculation (paper Section 3 final paragraph — seniority
-        waterfall): ``LGD = max(0, EAD·(1 − collateral_coverage) − EV − CASH)``.
-        Default 0 reproduces the previous unsecured behavior.
+        waterfall): ``LGD = clip(EAD·(1 − collateral_coverage) − max(EV, 0)
+        − max(CASH, 0), 0, EAD·(1 − collateral_coverage))``.
+        Default 0 reproduces the unsecured behavior.
     """
     if ev.shape != debt.shape or ev.shape != cash.shape:
         raise ValueError("ev, debt, cash must share the same shape")
@@ -162,9 +173,21 @@ def compute_metrics(
 
     # Exposure at default net of the collateral coverage — senior/secured
     # portion of the debt is recovered before the LGD waterfall kicks in.
+    # Limited liability: creditors recover at most what exists (EV and cash
+    # floored at zero) and lose at most the unsecured exposure.
     unsecured_ead = ead_at_default * (1.0 - collateral_coverage)
-    lgd = np.maximum(0.0, unsecured_ead - ev_at_default - cash_at_default)
-    recovery = 1.0 - lgd / np.maximum(ead_at_default, 1e-12)
+    recoverable = np.maximum(ev_at_default, 0.0) + np.maximum(cash_at_default, 0.0)
+    lgd = np.clip(unsecured_ead - recoverable, 0.0, unsecured_ead)
+
+    # Recovery rate only over defaults with material exposure: trials that
+    # default with EAD ~ 0 (equity-value insolvency without debt) have no
+    # creditor exposure to recover and would distort the mean.
+    material = ead_at_default > _MATERIAL_EAD
+    recovery = (
+        1.0 - lgd[material] / ead_at_default[material]
+        if material.any()
+        else np.array([1.0])
+    )
 
     lgd_mean = float(lgd.mean())
     lgd_median = float(np.median(lgd))

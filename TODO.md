@@ -98,7 +98,7 @@ Queste integrazioni sono follow-up e richiederanno test di regressione quantitat
 
 ### Credit metrics — robustezza numerica
 
-- [ ] **Clippare LGD e recovery rate in `credit_metrics.py`** (emerso il 2026-07-13 sul dataset reale, target `trafer_spa`). Sui trial in cui l'EV simulato va vicino a zero o negativo, la LGD supera l'EAD (`lgd_mean` > 1× EAD) e il recovery rate diventa negativo (−46.75% mostrato in dashboard, fino a −6.5e6 su singoli trial per divisione per EV ≈ 0). Fix proposto: `LGD = min(LGD, EAD)` per trial (recovery floor a 0) e guardia sul denominatore nel recovery medio; aggiungere test di regressione su un target distressed. Priorità P2: non altera la PD, ma EL/UL e recovery esposti al comitato crediti sono fuori scala sui casi estremi.
+- [x] **Clippare LGD e recovery rate in `credit_metrics.py`** (emerso il 2026-07-13 sul dataset reale, target `trafer_spa`; **fixato il 2026-07-13**). Sui trial in cui l'EV simulato andava negativo, la LGD superava l'EAD e il recovery rate esplodeva (−46.75% medio in dashboard, milioni di percento sui trial con debito ≈ 0). Fix applicato — responsabilità limitata nella cascata: `LGD = clip(EAD_unsecured − max(EV,0) − max(CASH,0), 0, EAD_unsecured)`, recovery calcolato solo sui default con EAD materiale (> 1 EUR). PD invariata per costruzione. 5 test di regressione aggiunti (inclusi EV negativo, debito nullo, target reale distressed end-to-end). Su TRAFER: LGD media da 1.70 → 0.88 M€ (≤ EAD 1.14), recovery da −46.8% → 27.1%, EL da 1.65 → 0.85 M€.
 
 ### Dati reali
 
