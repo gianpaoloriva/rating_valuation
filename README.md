@@ -36,7 +36,7 @@ Per ogni impresa analizzata, la suite genera:
 
 - **Enterprise Value e Equity Value** con decomposizione tra valore esplicito e Terminal Value, e con il `coherence_report` automatico (7 check) attaccato al risultato
 - **Probabilità di default** per orizzonti 1, 2 e 3 anni in tre versioni (yearly default frequency, marginal PD condizionata, cumulative PD)
-- **LGD, Expected Loss, Unexpected Loss** per ogni percentile dell'intervallo di confidenza, con collateral coverage opt-in
+- **LGD, Expected Loss, Unexpected Loss** per ogni percentile dell'intervallo di confidenza, con collateral coverage opt-in e responsabilità limitata garantita per costruzione (`LGD ≤ EAD`, `recovery ∈ [0, 1]`)
 - **Rating implicito** sulla master scale S&P (AAA → D), interpolato log-linearmente (es. `"BBB+/BBB (0.42)"`) per non quantizzare la PD sulle 22 classi
 - **Confronto target vs Impresa Media Standard** del settore, con attribuzione differenziale del premio/sconto per driver
 - **Backtest comparativo** rispetto ad Altman Z'' e altri modelli classici, con AUROC / Gini / KS
@@ -186,6 +186,8 @@ Calcolate solo sui trial che effettivamente defaultano:
 
 **Recovery rate**: `1 − LGD_mean / EAD_mean`. Nel paper RAPD il recovery medio del campione empirico è ~38%, con correlazione PD–recovery `−0.70`. Il sistema riproduce questa correlazione negativa se la simulazione include un numero sufficiente di default.
 
+**Responsabilità limitata (enforced)**: sui target in stress estremo l'EV simulato può andare negativo; la cascata LGD lo floora a zero, cappa la perdita all'EAD unsecured (il creditore non può perdere più di quanto ha prestato) e calcola il recovery medio solo sui default con esposizione materiale. Per costruzione valgono `lgd_mean ≤ ead_mean` e `recovery ∈ [0, 1]` anche sui casi degeneri; PD e rating non sono toccati perché il flag di default è determinato a monte. Sul target reale distressed (TRAFER FY2024, seed 42): LGD media 0,88 M€ su EAD 1,14 M€, recovery 27,1%.
+
 ### Analisi differenziale target vs Impresa Media Standard
 
 Il Differential Analyzer scompone il premio/sconto del target rispetto al BMS in 4 driver:
@@ -244,6 +246,18 @@ docker compose up --build
 ```
 
 Il container è basato su `python:3.11-slim`, gira come non-root ed espone un healthcheck su `/_stcore/health`.
+
+### AWS on-demand (eu-west-1)
+
+Nessun servizio sempre attivo: in ECR resta solo l'immagine (~0,15 $/mese), il container si avvia solo quando serve.
+
+```bash
+./deploy/deploy.sh   # build linux/amd64 + push :latest su ECR
+./deploy/start.sh    # avvia un task Fargate Spot e stampa http://<ip>:8501
+./deploy/stop.sh     # spegne il task (auto-stop comunque dopo 4 ore)
+```
+
+`start.sh` limita l'accesso di rete all'IP del chiamante (`--allow`/`--open` per ammettere ospiti).
 
 ---
 
@@ -305,13 +319,13 @@ rating_valuation/
 ├── tests/                         pytest test suite
 ├── examples/                      script end-to-end di esempio
 ├── deploy/                        deploy AWS on-demand (deploy.sh, start.sh, stop.sh)
-├── docs/                          PDF dei 3 paper + capitolo editoriale (Capitolo_doc.md)
+├── docs/                          PDF dei 3 paper + capitolo editoriale (Capitolo_doc.md, Capitolo_agg.md)
 └── .claude/agents/                subagent specializzati per analisi approfondite
 ```
 
 ## Stato del progetto
 
-Tutti i tool principali sono a produzione e coperti da una test suite di 188 test che gira in meno di un secondo. Il dataset principale è reale (AIDA, ATECO 4672) e la dashboard si esegue on-demand su AWS Fargate Spot (`deploy/start.sh`, nessun servizio sempre attivo). L'elenco dettagliato delle funzionalità completate e il backlog delle correzioni aperte (con priorità) sono in [`TODO.md`](TODO.md).
+Tutti i tool principali sono a produzione e coperti da una test suite di 193 test che gira in circa un secondo. Il dataset principale è reale (AIDA, ATECO 4672) e la dashboard si esegue on-demand su AWS Fargate Spot (`deploy/start.sh`, nessun servizio sempre attivo). L'elenco dettagliato delle funzionalità completate e il backlog delle correzioni aperte (con priorità) sono in [`TODO.md`](TODO.md).
 
 ---
 
