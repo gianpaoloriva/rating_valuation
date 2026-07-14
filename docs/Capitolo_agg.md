@@ -1,3 +1,101 @@
+# Capitolo_agg.md — Aggiornamento del capitolo per il nuovo Quaderno
+
+> **Documento di lavoro, 14 luglio 2026.** Questo file è l'input per l'assistente (claude.ai) che deve completare e aggiornare il capitolo in pubblicazione sul nuovo Quaderno. È autosufficiente: contiene le istruzioni, il delta delle modifiche software intervenute, le modifiche puntuali richieste sezione per sezione e — in appendice — il testo integrale aggiornato del capitolo.
+
+---
+
+## 0. Istruzioni per l'assistente
+
+**Chi sei in questo task.** Un editor tecnico-finanziario che aggiorna un capitolo già scritto (in italiano) destinato a un Quaderno AIAF. Il capitolo descrive la *Rating & Valuation Suite*: architettura, capability e fondamenti metodologici.
+
+**Cosa devi fare.**
+
+1. Partire dal manoscritto attualmente in lavorazione presso la redazione (versione precedente del capitolo).
+2. Applicare le modifiche descritte nella sezione 2 (delta) e nella sezione 3 (interventi puntuali).
+3. In caso di dubbio o di divergenza fra il manoscritto e questo documento, **fa fede il testo integrale in appendice (sezione 5)**, che è già la versione aggiornata e verificata contro il codice al 14 luglio 2026.
+
+**Cosa NON devi fare.**
+
+- Non riscrivere sezioni che non sono toccate dal delta: la voce, il registro e la struttura del capitolo sono deliberati e vanno preservati.
+- Non aggiungere enfasi promozionale: il tono del capitolo è descrittivo e metodologicamente onesto (dichiara i limiti, sezione 6).
+- Non modificare formule, numerazione delle equazioni ([1]–[13]) o riferimenti bibliografici.
+- Non convertire i numeri: valori monetari in **milioni di euro (M€)**, tassi in **percentuale con virgola decimale** (convenzione italiana: 0,88 M€, −46,8 %).
+
+---
+
+## 1. Contesto
+
+La suite è una libreria Python + dashboard Streamlit che implementa tre metodologie integrate: **BMS** (Bilancio Medio Standardizzato, Scarano/Brughera 2008), **Terminal Value coerente** (Scarano/Di Napoli 2008) e **Agentic Credit Risk** (PD stocastica forward-looking, Montesi/Papiro 2014). Il capitolo in pubblicazione descrive *cosa fa e perché*; un capitolo successivo descriverà *come si usa*.
+
+La versione precedente del capitolo era già aggiornata all'onboarding del dataset reale AIDA (277 società ATECO 4672, target TRAFER SPA) di luglio 2026. Da allora sono intervenute **due modifiche sostanziali al software** (13–14 luglio 2026), descritte sotto.
+
+---
+
+## 2. Delta: cosa è cambiato nel software dall'ultima versione del capitolo
+
+### 2.1 Responsabilità limitata nella cascata LGD (fix del 13 luglio 2026)
+
+**Il problema.** Sul target reale distressed (TRAFER SPA) la dashboard mostrava un recovery rate medio di **−46,75 %** e una LGD media *superiore* all'esposizione (1,70 M€ di perdita a fronte di un EAD di 1,14 M€). La causa: nei trial Monte Carlo in cui l'Enterprise Value simulato scende sotto zero, la formula della LGD propagava l'EV negativo, producendo perdite superiori al prestato e — sui default con debito quasi nullo — recovery rate di milioni di percento.
+
+**Il fix.** La cascata LGD ora applica il principio di **responsabilità limitata**:
+
+- l'EV negativo (e la cassa) sono portati a zero nel calcolo del valore recuperabile;
+- la LGD è cappata all'EAD unsecured — il creditore non può perdere più di quanto ha prestato;
+- il recovery rate medio è calcolato solo sui default con esposizione materiale (EAD > 1 €).
+
+Per costruzione valgono quindi `LGD ≤ EAD` e `recovery ∈ [0, 1]` anche sui casi degeneri. **La PD e il rating implicito non cambiano**: il flag di default è determinato a monte della cascata.
+
+**Impatto numerico su TRAFER (FY2024, seed 42):** LGD media da 1,70 → **0,88 M€** (EAD 1,14 M€); recovery medio da −46,8 % → **27,1 %**; Expected Loss da 1,65 → **0,85 M€**.
+
+**Valore narrativo per il capitolo:** è il primo caso in cui il dataset reale ha esercitato un ramo del modello che la fixture sintetica non raggiungeva — conferma empirica dell'utilità dell'onboarding dei dati reali. Il fix è coperto da 5 nuovi test di regressione, inclusa una regressione end-to-end sul target reale.
+
+### 2.2 Deploy cloud on-demand su AWS Fargate Spot (14 luglio 2026)
+
+**Prima:** servizio ECS always-on (~65 $/mese fra Fargate 24/7, load balancer e IP pubblici) per una dashboard usata sporadicamente. **Ora:** tutte le risorse fisse sono state eliminate; resta solo l'immagine Docker su ECR (~0,15 $/mese). Tre script:
+
+- `deploy.sh` — build dell'immagine e push su ECR;
+- `start.sh` — avvia un singolo task Fargate **Spot** (0,5 vCPU / 1 GB), con accesso di rete limitato all'IP del chiamante, e stampa l'URL della dashboard;
+- `stop.sh` — spegne il task e chiude l'accesso di rete.
+
+Il container si **auto-termina dopo 4 ore**, quindi una sessione dimenticata non può generare costi significativi. La chiave di lettura editoriale: il modello di esecuzione è coerente con la natura della suite — *uno strumento di analisi che si accende quando c'è una valutazione da fare, non un servizio da presidiare*.
+
+### 2.3 Test suite: da 188 a 193 test
+
+I 5 test aggiunti coprono la responsabilità limitata della cascata LGD (EV negativo, debito quasi nullo, end-to-end sul target reale distressed). Il tempo di esecuzione resta ~1 secondo.
+
+### 2.4 Roadmap: una voce chiusa
+
+La voce di follow-up *"robustezza numerica delle metriche LGD/recovery sui target in stress estremo (clip LGD ≤ EAD)"* è **risolta** e va rimossa dall'elenco dei follow-up aperti. Restano aperti: integrazione Capex/debt tranches nel loop del simulator, esposizione nei pannelli Streamlit dei parametri Appendice A, backtest Sezione 5 su sample storico reale.
+
+---
+
+## 3. Interventi puntuali richiesti sul manoscritto, sezione per sezione
+
+| # | Sezione del capitolo | Intervento |
+|---|---|---|
+| 1 | § 2 *Architettura* — paragrafo finale sulla test suite | Aggiornare il conteggio: "188 test in meno di un secondo" → "**193 test in circa un secondo**". |
+| 2 | § 3.4 *Agentic Credit Risk* — dopo il paragrafo "Output del simulatore" | **Aggiungere un nuovo paragrafo** "Responsabilità limitata nella cascata LGD" con il contenuto del § 2.1 di questo documento (testo esatto nell'appendice, sezione 5). |
+| 3 | § 5 *Stack tecnico* — voce "Test suite" | Aggiornare a 193 test e aggiungere il bullet: "responsabilità limitata della cascata LGD sui casi degeneri (EV negativo, debito quasi nullo), inclusa una regressione end-to-end sul target reale distressed". |
+| 4 | § 5 *Stack tecnico* — dopo la voce "Dashboard" | **Aggiungere una nuova voce** "Esecuzione cloud on-demand" con il contenuto del § 2.2 (testo esatto in appendice). |
+| 5 | § 7 *Stato del progetto e roadmap* | (a) Aggiungere la chiusura del fix LGD alla cronologia di luglio 2026, con rimando al § 3.4; (b) **rimuovere** dai follow-up aperti la voce sul clip LGD ≤ EAD. |
+| 6 | Tutte le altre sezioni (Premessa, § 1, § 3.1–3.3, § 3.5–3.6, § 4, § 6, § 8, Riferimenti) | **Nessuna modifica.** |
+
+---
+
+## 4. Vincoli editoriali e verifiche finali
+
+- **Voce:** prima persona plurale implicita, tono da rivista professionale AIAF; l'ironia è ammessa solo in dosi omeopatiche (es. "un non-senso di −46,8 %").
+- **Coerenza interna:** dopo le modifiche, il conteggio dei test deve essere identico in § 2 e § 5 (193); il rimando "cfr. § 3.4" in § 7 deve puntare al nuovo paragrafo sulla LGD.
+- **Fatti verificati contro il codice al 14/07/2026:** 193 test passanti; dataset primario reale (277 società, FY2020–2024, target TRAFER SPA); numeri TRAFER del fix LGD presi dal commit `45e2f5a`; dettagli deploy dal commit `c02b745`.
+- **Nulla di ciò che segue è previsionale:** ogni numero citato è riproducibile con seed fisso dal repository.
+
+---
+
+## 5. Appendice — Testo integrale aggiornato del capitolo (versione di riferimento, 14 luglio 2026)
+
+> In caso di conflitto con il manoscritto in redazione, fa fede questa versione.
+
+<!-- ====== INIZIO TESTO INTEGRALE DEL CAPITOLO ====== -->
 # Capitolo — La Rating & Valuation Suite: architettura, capability e fondamenti metodologici
 
 ## Premessa: un'applicazione costruita con l'AI, eseguibile senza AI
@@ -331,3 +429,5 @@ Il capitolo successivo entra nel dettaglio passo-passo: installazione, prima val
 - Damodaran A., *Equity Risk Premiums (ERP): Determinants, Estimation and Implications*, Stern School of Business, 2008.
 
 I PDF originali dei tre paper metodologici principali sono allegati al repository del codice (cartella `docs/`).
+
+<!-- ====== FINE TESTO INTEGRALE DEL CAPITOLO ====== -->
