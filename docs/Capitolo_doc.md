@@ -292,7 +292,7 @@ Per onestà metodologica e per uso responsabile, è importante dichiarare cosa *
 
 ## 7. Stato del progetto e roadmap
 
-L'audit linea-per-linea fra codice e paper di riferimento, eseguito ad aprile 2026, ha chiuso tutte le voci di priorità P1–P4 con impatto quantitativo o qualitativo (cfr. `TODO.md`). A luglio 2026 è stato completato l'onboarding del dataset reale AIDA (ATECO 4672) come dataset principale, con la pubblicazione del mapping IV Direttiva → schema (`data/mapping_iv_directive.md`) e il deploy su AWS ECS. I follow-up aperti sono:
+L'audit linea-per-linea fra codice e paper di riferimento, eseguito ad aprile 2026, ha chiuso tutte le voci di priorità P1–P4 con impatto quantitativo o qualitativo (cfr. `TODO.md`). A luglio 2026 è stato completato l'onboarding del dataset reale AIDA (ATECO 4672) come dataset principale, con la pubblicazione del mapping IV Direttiva → schema (`data/mapping_iv_directive.md`) e l'esecuzione on-demand su AWS Fargate (avvio solo quando serve, per contenere i costi cloud). I follow-up aperti sono:
 
 - integrazione delle primitives Capex (`capex_plan.py`) e debt tranches (`debt_tranches.py`) nel loop principale del simulator (richiede test di regressione su dataset reale);
 - esposizione nei pannelli Streamlit dei parametri opt-in dell'Appendice A (`cash_yield`, `payout_ratio`, `debt_floor`, `tax_stochastic`, `collateral_coverage`);

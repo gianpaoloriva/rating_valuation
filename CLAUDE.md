@@ -41,9 +41,10 @@ RV_DATA_DIR=data/synthetic streamlit run app/Rating_Valuation_Suite.py  # synthe
 # Docker
 docker compose up --build                 # → http://localhost:8501 (mounts ./data read-only)
 
-# Deploy to AWS (ECS Express, eu-west-1 — ECR repo & service already provisioned)
-./deploy/deploy.sh                        # build linux/amd64, push to ECR, update service
-./deploy/deploy.sh --no-wait              # same, without polling for RUNNING
+# AWS on-demand (eu-west-1 — no always-on service: pay only while the task runs)
+./deploy/deploy.sh                        # build linux/amd64, push :latest to ECR
+./deploy/start.sh                         # launch Fargate SPOT task, prints http://<ip>:8501
+./deploy/stop.sh                          # stop the task (self-stops after 4h anyway)
 ```
 
 Requires Python >= 3.11. Runtime deps: `pandas`, `numpy`, `scipy`. App extras: `streamlit`, `plotly`.

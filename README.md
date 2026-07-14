@@ -304,14 +304,14 @@ rating_valuation/
 ├── app/                           dashboard Streamlit multi-page
 ├── tests/                         pytest test suite
 ├── examples/                      script end-to-end di esempio
-├── deploy/                        deploy AWS ECS Express (deploy.sh)
+├── deploy/                        deploy AWS on-demand (deploy.sh, start.sh, stop.sh)
 ├── docs/                          PDF dei 3 paper + capitolo editoriale (Capitolo_doc.md)
 └── .claude/agents/                subagent specializzati per analisi approfondite
 ```
 
 ## Stato del progetto
 
-Tutti i tool principali sono a produzione e coperti da una test suite di 188 test che gira in meno di un secondo. Il dataset principale è reale (AIDA, ATECO 4672) e la dashboard è deployata su AWS ECS. L'elenco dettagliato delle funzionalità completate e il backlog delle correzioni aperte (con priorità) sono in [`TODO.md`](TODO.md).
+Tutti i tool principali sono a produzione e coperti da una test suite di 188 test che gira in meno di un secondo. Il dataset principale è reale (AIDA, ATECO 4672) e la dashboard si esegue on-demand su AWS Fargate Spot (`deploy/start.sh`, nessun servizio sempre attivo). L'elenco dettagliato delle funzionalità completate e il backlog delle correzioni aperte (con priorità) sono in [`TODO.md`](TODO.md).
 
 ---
 
