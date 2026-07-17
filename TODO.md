@@ -2,7 +2,9 @@
 
 Tracker unificato delle funzionalità completate e delle correzioni fatte sul codice dopo l'audit del 2026-04-08 che ha confrontato linea per linea le formule implementate con i paper di riferimento.
 
-Ultimo aggiornamento: 2026-07-13 — onboarding del dataset reale AIDA (ATECO 4672) come dataset principale; sintetico spostato in `data/synthetic/`. Test suite: **188 test passati in ~1s** (183 + 5 guardie sul dataset reale in `tests/test_real_dataset.py`).
+Ultimo aggiornamento: 2026-07-17 — questo repo è **fonte autoritativa** di `credit_metrics.py`; il fix limited-liability è stato portato al repo gemello `valuation_analyst/` rendendo i due file byte-identici (vedi sezione *Governance*). Documentazione WACC/credit risk consolidata in `docs/wacc_credit_risk_linee_guida.md` e `docs/nota_tecnica_credit_metrics_allineamento.md`.
+
+Precedente: 2026-07-13 — onboarding del dataset reale AIDA (ATECO 4672) come dataset principale; sintetico spostato in `data/synthetic/`. Test suite: **188 test passati in ~1s** (183 + 5 guardie sul dataset reale in `tests/test_real_dataset.py`).
 
 ---
 
@@ -98,7 +100,18 @@ Queste integrazioni sono follow-up e richiederanno test di regressione quantitat
 
 ### Credit metrics — robustezza numerica
 
-- [x] **Clippare LGD e recovery rate in `credit_metrics.py`** (emerso il 2026-07-13 sul dataset reale, target `trafer_spa`; **fixato il 2026-07-13**). Sui trial in cui l'EV simulato andava negativo, la LGD superava l'EAD e il recovery rate esplodeva (−46.75% medio in dashboard, milioni di percento sui trial con debito ≈ 0). Fix applicato — responsabilità limitata nella cascata: `LGD = clip(EAD_unsecured − max(EV,0) − max(CASH,0), 0, EAD_unsecured)`, recovery calcolato solo sui default con EAD materiale (> 1 EUR). PD invariata per costruzione. 5 test di regressione aggiunti (inclusi EV negativo, debito nullo, target reale distressed end-to-end). Su TRAFER: LGD media da 1.70 → 0.88 M€ (≤ EAD 1.14), recovery da −46.8% → 27.1%, EL da 1.65 → 0.85 M€.
+- [x] **Clippare LGD e recovery rate in `credit_metrics.py`** (emerso il 2026-07-13 sul dataset reale, target `trafer_spa`; **fixato il 2026-07-13**). Sui trial in cui l'EV simulato andava negativo, la LGD superava l'EAD e il recovery rate esplodeva (−46.75% medio in dashboard, milioni di percento sui trial con debito ≈ 0). Fix applicato — responsabilità limitata nella cascata: `LGD = clip(EAD_unsecured − max(EV,0) − max(CASH,0), 0, EAD_unsecured)`, recovery calcolato solo sui default con EAD materiale (> 1 EUR). PD invariata per costruzione. 5 test di regressione aggiunti (inclusi EV negativo, debito nullo, target reale distressed end-to-end). Su TRAFER: LGD media da 1.70 → 0.88 M€ (≤ EAD 1.14), recovery da −46.8% → 27.1%, EL da 1.65 → 0.85 M€. **Portato al repo gemello `valuation_analyst/` il 2026-07-17** (i due `credit_metrics.py` sono ora byte-identici; test adattato al dataset sintetico del gemello).
+
+### Default anticipato (Punto 4)
+
+- [ ] Introdurre `default_buffer` in `compute_metrics` (default `0.0` = baseline): `ev < (debt − cash)·(1 + buffer)`. Da applicare **in entrambi i repo** mantenendoli allineati. Vedi `docs/wacc_credit_risk_linee_guida.md` → Fase 1 → Punto 4.
+- [ ] *(opzionale)* Soglia alternativa su coverage ratio `EBIT_t/INT_t < soglia`.
+
+### Governance — allineamento con il repo gemello `valuation_analyst/`
+
+- [ ] **Regola di allineamento:** ogni modifica a `src/rating_valuation/` va replicata nell'altro repo nella stessa PR (i due package sono copie; `credit_metrics.py` e `data_loader.py` sono già divergiti in passato — `data_loader.py` diverge tuttora per scelta di dataset: qui AIDA reale, nel gemello sintetico).
+- [ ] Valutare l'unificazione dei due package `src/rating_valuation/` in una sorgente condivisa (submodule / package installabile / monorepo). Decisione architetturale — vedi `docs/nota_tecnica_credit_metrics_allineamento.md` §7.
+- [x] Documentazione WACC/credit risk consolidata: `docs/wacc_credit_risk_linee_guida.md` (contratto WACC + validazione dei 5 punti di Maurizio + checklist per fasi) e `docs/nota_tecnica_credit_metrics_allineamento.md` (diff puntuale del fix). Presenti identiche in entrambi i repo.
 
 ### Dati reali
 
