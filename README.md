@@ -46,6 +46,62 @@ Tutti gli output sono esposti via libreria Python, dashboard Streamlit multi-pag
 
 ---
 
+## La dashboard in immagini
+
+Screenshot della dashboard Streamlit sul dataset reale AIDA (277 grossisti di metalli ATECO 4672, target METAL D S.R.L., FY2020–2024). Le immagini sono in [`screenshots/`](screenshots/).
+
+### Home — dataset caricato
+
+Landing page con le metriche del dataset (aziende, righe company×anno, settori, anni coperti) e la scheda del target.
+
+![Home](screenshots/01_home.png)
+
+### BMS Builder
+
+Bilancio Medio Standardizzato del settore FY2024: 276 peer, conto economico normalizzato in % del fatturato, composizione grafica.
+
+![BMS Builder](screenshots/02_bms_builder.png)
+
+### DCF Valuation
+
+DCF a 2 stadi con Terminal Value coerente: scomposizione dell'Enterprise Value e validatore automatico C1–C7 con verdict aggregato.
+
+![DCF Valuation](screenshots/03_dcf_valuation.png)
+
+### Differential Analysis
+
+Target vs Impresa Media Standard: 12 indicatori su scala, margine, capital intensity, leva ed efficienza, con grafico degli scostamenti.
+
+![Differential Analysis](screenshots/04_differential_analysis.png)
+
+### Agentic Credit Risk
+
+Simulazione Monte Carlo (5.000 trial × 3 anni, seed 42): PD cumulata 0,78%, rating implicito BB+/BB, evoluzione PD marginale/cumulata e distribuzione LGD.
+
+![Agentic Credit Risk](screenshots/05_agentic_credit_risk.png)
+
+### Rating Mapper
+
+Master scale Rating ↔ PD in scala logaritmica, conversione CDS → PD e Altman Z-score → rating.
+
+![Rating Mapper](screenshots/06_rating_mapper.png)
+
+### Backtest Comparator
+
+Backtest Agentic Credit Risk vs Altman Z'' sull'intero campione FY2024 (256 aziende simulate, 21 escluse perché non simulabili): risultati per azienda e rating assegnati da ciascun modello.
+
+![Backtest Comparator](screenshots/07_backtest_comparator.png)
+
+![Backtest — rating per modello](screenshots/08_backtest_ratings.png)
+
+### Data Manager
+
+Download dei template CSV (popolati o vuoti) e upload di dataset personalizzati con validazione di schema.
+
+![Data Manager](screenshots/09_data_manager.png)
+
+---
+
 ## Fondamenti metodologici
 
 Il sistema implementa e integra tre metodologie accademicamente consolidate:
@@ -316,6 +372,7 @@ rating_valuation/
 │   └── generators/                generatore della fixture sintetica
 ├── src/rating_valuation/          libreria Python (common, bms, dcf, agentic_credit_risk, rating, backtest)
 ├── app/                           dashboard Streamlit multi-page
+├── screenshots/                   screenshot della dashboard (referenziati dal README)
 ├── tests/                         pytest test suite
 ├── examples/                      script end-to-end di esempio
 ├── deploy/                        deploy AWS on-demand (deploy.sh, start.sh, stop.sh)
