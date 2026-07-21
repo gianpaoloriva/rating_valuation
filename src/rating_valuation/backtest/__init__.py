@@ -11,16 +11,20 @@ from rating_valuation.backtest.comparator import (
     BacktestResult,
     BacktestRow,
     BacktestRunner,
+    PDDistribution,
     auroc,
     gini_coefficient,
     kolmogorov_smirnov,
+    pd_distribution,
 )
 
 __all__ = [
     "BacktestResult",
     "BacktestRow",
     "BacktestRunner",
+    "PDDistribution",
     "auroc",
     "gini_coefficient",
     "kolmogorov_smirnov",
+    "pd_distribution",
 ]

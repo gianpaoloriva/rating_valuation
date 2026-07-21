@@ -107,6 +107,94 @@ def kolmogorov_smirnov(scores: np.ndarray, labels: np.ndarray) -> float:
 
 
 # -----------------------------------------------------------------------------
+# PD sample distribution (sanity check of the whole sample)
+# -----------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class PDDistribution:
+    """Density of the per-company PDs of a sample, in log10 space.
+
+    PDs span orders of magnitude, so the density is estimated on
+    ``log10(PD)`` (clipped at ``floor``): a healthy homogeneous sample
+    shows a single bell; a "double saddle" (two modes) signals a mixture
+    of two populations — e.g. structurally sound companies vs distressed
+    ones, or dealers vs brokers — worth splitting before drawing sector
+    conclusions.
+    """
+
+    log10_pd: np.ndarray      # clipped log10 PD, one entry per company
+    grid: np.ndarray          # log10 grid where the density is evaluated
+    density: np.ndarray       # KDE density on ``grid`` (empty if degenerate)
+    n_modes: int              # number of local maxima of the density
+    floor: float              # PD floor applied before the log transform
+
+    @property
+    def is_bimodal(self) -> bool:
+        return self.n_modes >= 2
+
+
+def pd_distribution(
+    pds: np.ndarray | pd.Series | list[float],
+    *,
+    floor: float = 1e-5,
+    grid_points: int = 300,
+    prominence: float = 0.05,
+) -> PDDistribution:
+    """Estimate the log-space density of a vector of per-company PDs.
+
+    Parameters
+    ----------
+    pds : array-like
+        One PD per company (decimals in [0, 1]); NaNs are dropped.
+    floor : float
+        PDs below this are clipped before taking log10 (a simulated PD can
+        be exactly 0 when no trial defaults).
+    prominence : float
+        Minimum prominence of a peak, as a fraction of the maximum density,
+        for it to count as a mode. Filters numerical ripples.
+    """
+    arr = np.asarray(pds, dtype=float)
+    arr = arr[np.isfinite(arr)]
+    if arr.size == 0:
+        raise ValueError("pd_distribution requires at least one finite PD")
+    if np.any((arr < 0) | (arr > 1)):
+        raise ValueError("PDs must be within [0, 1]")
+
+    log10_pd = np.log10(np.clip(arr, floor, 1.0))
+
+    # Degenerate samples (too few points or ~zero spread): no KDE.
+    if log10_pd.size < 3 or np.ptp(log10_pd) < 1e-9:
+        return PDDistribution(
+            log10_pd=log10_pd,
+            grid=np.array([]),
+            density=np.array([]),
+            n_modes=0,
+            floor=floor,
+        )
+
+    from scipy.signal import find_peaks
+    from scipy.stats import gaussian_kde
+
+    kde = gaussian_kde(log10_pd)
+    pad = 0.3
+    grid = np.linspace(log10_pd.min() - pad, log10_pd.max() + pad, grid_points)
+    density = kde(grid)
+
+    peaks, _ = find_peaks(density, prominence=prominence * density.max())
+    # A monotone density has its maximum on the boundary: still one mode.
+    n_modes = max(int(len(peaks)), 1)
+
+    return PDDistribution(
+        log10_pd=log10_pd,
+        grid=grid,
+        density=density,
+        n_modes=n_modes,
+        floor=floor,
+    )
+
+
+# -----------------------------------------------------------------------------
 # Result containers
 # -----------------------------------------------------------------------------
 

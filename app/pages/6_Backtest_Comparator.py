@@ -9,12 +9,14 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
 from app._common import load_bundle, page_header, sector_selector, year_selector
-from rating_valuation.backtest import BacktestRunner
+from rating_valuation.backtest import BacktestRunner, pd_distribution
 
 st.set_page_config(page_title="Backtest Comparator", page_icon="🏁", layout="wide")
 
@@ -109,6 +111,81 @@ def main() -> None:
         use_container_width=True,
         hide_index=True,
     )
+
+    # ------------------------------------------------------------------
+    # PD distribution across the whole sample (data sanity check)
+    # ------------------------------------------------------------------
+    st.markdown("### Distribuzione delle PD sul campione")
+    st.caption(
+        "Istogramma + densità (KDE) delle PD cumulate Agentic Credit Risk, "
+        "in scala logaritmica. Un campione omogeneo produce una campana "
+        "unica; una doppia sella (bimodale) segnala due popolazioni "
+        "distinte nel campione (es. società solide vs in tensione) da "
+        "analizzare separatamente. Le PD pari a 0 (nessun default simulato "
+        "nei trial) sono mostrate al floor 0.001%."
+    )
+    dist = pd_distribution(df["acr_pd"])
+
+    fig_dist = go.Figure()
+    fig_dist.add_trace(
+        go.Histogram(
+            x=dist.log10_pd,
+            histnorm="probability density",
+            nbinsx=min(40, max(10, len(df) // 5)),
+            name="Frequenza campione",
+            marker_color="steelblue",
+            opacity=0.55,
+        )
+    )
+    if dist.density.size:
+        fig_dist.add_trace(
+            go.Scatter(
+                x=dist.grid,
+                y=dist.density,
+                mode="lines",
+                name="Densità (KDE)",
+                line=dict(color="firebrick", width=2),
+            )
+        )
+    # Highlight the flagged target, if it survived the simulation
+    target_rows = sample[sample["is_target"] == 1]
+    if not target_rows.empty:
+        tid = str(target_rows.iloc[0]["company_id"])
+        match = df[df["company_id"] == tid]
+        if not match.empty:
+            target_log_pd = float(
+                np.log10(max(float(match.iloc[0]["acr_pd"]), dist.floor))
+            )
+            fig_dist.add_vline(
+                x=target_log_pd,
+                line=dict(color="black", dash="dash"),
+                annotation_text=f"Target: {match.iloc[0]['company_name']}",
+                annotation_position="top",
+            )
+    tickvals = list(range(-5, 1))
+    fig_dist.update_layout(
+        title=(
+            f"PD cumulata a {n_years} anni — {len(df)} aziende, "
+            f"{'bimodale (doppia sella)' if dist.is_bimodal else 'unimodale'}"
+            f" ({dist.n_modes} moda/e)"
+        ),
+        xaxis=dict(
+            title="PD (scala log)",
+            tickvals=tickvals,
+            ticktext=[f"{10**v * 100:g}%" for v in tickvals],
+        ),
+        yaxis_title="Densità",
+        barmode="overlay",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+    )
+    st.plotly_chart(fig_dist, use_container_width=True)
+    if dist.is_bimodal:
+        st.warning(
+            f"La distribuzione presenta {dist.n_modes} mode: il campione "
+            "contiene sotto-popolazioni con profili di rischio diversi. "
+            "Verificare la composizione del campione (Data Manager) prima "
+            "di trarre conclusioni di settore."
+        )
 
     # ------------------------------------------------------------------
     # Metrics table (if both labels present)
