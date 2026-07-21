@@ -14,7 +14,10 @@ della suite (milioni EUR, schema di `data/schema.md`).
   `immobilizzazioni finanziarie / totale attivo > 10%` in almeno un anno valido → 43 società
   escluse, campione finale 277. Per le rimanenti le immobilizzazioni finanziarie (marginali)
   restano nel capitale investito (NFA).
-- Target: estrazione casuale con seed 42 tra le società con panel 2020–2024 completo → `trafer_spa`.
+- Target: `metal_d_s_r_l` (METAL D S.R.L.), scelto il 2026-07-21 via `--target` come società più
+  vicina alle mediane di settore (EBITDA/NWC positivi tutti gli anni, debito materiale). In
+  assenza di `--target` l'ETL estrae casualmente con seed 42 tra i panel completi (la vecchia
+  estrazione dava `trafer_spa`, di fatto un broker, scartato perché non rappresentativo).
 
 ## Conto economico
 

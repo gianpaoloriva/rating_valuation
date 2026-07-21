@@ -77,11 +77,27 @@ def main() -> None:
 
     st.success(result.summary())
 
+    if result.skipped:
+        with st.expander(
+            f"⚠️ {len(result.skipped)} aziende non simulabili — escluse dal backtest"
+        ):
+            st.caption(
+                "Tipicamente EBITDA margin atteso negativo: la Weibull dei "
+                "margini non è calibrabile e la società è esclusa da entrambi "
+                "i modelli per mantenere il confronto sullo stesso campione."
+            )
+            st.dataframe(
+                result.skipped_dataframe(), use_container_width=True, hide_index=True
+            )
+
     # ------------------------------------------------------------------
     # Per-company table
     # ------------------------------------------------------------------
     st.markdown("### Risultati per azienda")
     df = result.as_dataframe()
+    if df.empty:
+        st.warning("Nessuna azienda simulabile nel campione selezionato.")
+        return
     st.dataframe(
         df.style.format(
             {

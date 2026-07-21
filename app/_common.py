@@ -13,7 +13,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from rating_valuation.common.data_loader import DataBundle, load_all
+from rating_valuation.common.data_loader import DataBundle, load_all, peer_sample
 
 # -----------------------------------------------------------------------------
 # Paths
@@ -103,6 +103,9 @@ def year_selector(
     return st.sidebar.selectbox(label, years, index=len(years) - 1, key=key)
 
 
+_TARGET_STATE_KEY = "rv_target_company_id"
+
+
 def target_selector(
     bundle: DataBundle,
     gics_sub_industry: str,
@@ -121,11 +124,32 @@ def target_selector(
         row["company_id"]: f"{row['company_name']}{' [TARGET]' if row['is_target'] else ''}"
         for _, row in subset.iterrows()
     }
+    # La scelta è condivisa tra le pagine: chi cambia target su una pagina
+    # se lo ritrova selezionato anche sulle altre (fallback: is_target=1).
+    remembered = st.session_state.get(_TARGET_STATE_KEY)
+    default_idx = options.index(remembered) if remembered in options else 0
     selected = st.sidebar.selectbox(
         "Azienda target",
         options,
-        index=0,
+        index=default_idx,
         format_func=lambda cid: labels[cid],
         key=key,
     )
+    st.session_state[_TARGET_STATE_KEY] = selected
     return subset[subset["company_id"] == selected].iloc[0]
+
+
+def peer_sample_for_target(
+    bundle: DataBundle,
+    gics_sub_industry: str,
+    fiscal_year: int,
+    target: pd.Series,
+) -> pd.DataFrame:
+    """Peer sample that excludes both the flagged target and the selected one.
+
+    ``peer_sample`` drops only ``is_target == 1``: if the user picks a
+    different company from the dropdown, that company must not stay inside
+    the BMS it is compared against.
+    """
+    peers = peer_sample(bundle.companies, gics_sub_industry, fiscal_year=fiscal_year)
+    return peers[peers["company_id"] != target["company_id"]].reset_index(drop=True)

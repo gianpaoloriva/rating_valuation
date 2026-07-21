@@ -193,3 +193,49 @@ def test_simulator_stochastic_tax_rate_changes_result(bundle):
     # (Cumulative PD may be 0 in both runs for a very healthy target like
     # Riva Meccanica; we check the intermediate matrix instead.)
     assert not np.allclose(r_fixed.nopat, r_stoch.nopat)
+
+
+# -----------------------------------------------------------------------------
+# NWC negativo (fix 2026-07-21) e passthrough parametri opt-in Appendice A
+# -----------------------------------------------------------------------------
+
+
+def test_from_company_accepts_negative_nwc(bundle):
+    """Negative NWC is physiological in wholesale trade (supplier credit):
+    the Weibull location must be allowed to go negative instead of raising."""
+    target = target_row(bundle.companies, fiscal_year=2024).iloc[0].copy()
+    shift = float(target["net_working_capital"]) + 0.5
+    target["net_working_capital"] = -0.5
+    target["net_invested_capital"] = float(target["net_invested_capital"]) - shift
+    sim = AgenticCreditRiskSimulator.from_company(
+        target, bundle.sectors, bundle.macro, n_trials=1000, n_years=2,
+    )
+    assert sim.params.nwc_ratio.mean < 0
+    result = sim.run(seed=42)
+    assert 0 <= result.metrics.cumulative_pd[-1] <= 1
+
+
+def test_from_company_passes_appendix_a_options(bundle):
+    target = target_row(bundle.companies, fiscal_year=2024).iloc[0]
+    sim = AgenticCreditRiskSimulator.from_company(
+        target, bundle.sectors, bundle.macro,
+        n_trials=500, n_years=2,
+        cash_yield=0.01, payout_ratio=0.3, debt_floor=1.0, tax_stochastic=True,
+    )
+    st = sim.initial_state
+    assert st.cash_yield == pytest.approx(0.01)
+    assert st.payout_ratio == pytest.approx(0.3)
+    assert st.debt_floor == pytest.approx(1.0)
+    assert st.tax_stochastic is True
+
+
+def test_run_default_buffer_zero_matches_baseline(bundle):
+    target = target_row(bundle.companies, fiscal_year=2024).iloc[0]
+    sim = AgenticCreditRiskSimulator.from_company(
+        target, bundle.sectors, bundle.macro, n_trials=1000, n_years=2,
+    )
+    base = sim.run(seed=42)
+    buffered = sim.run(seed=42, default_buffer=0.0)
+    assert float(base.metrics.cumulative_pd[-1]) == pytest.approx(
+        float(buffered.metrics.cumulative_pd[-1])
+    )

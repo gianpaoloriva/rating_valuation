@@ -137,3 +137,46 @@ def test_runner_summary_string(bundle):
     s = result.summary()
     assert "3 companies" in s
     assert "500 trials" in s
+
+
+def test_runner_skips_non_simulatable_companies(bundle):
+    """A company with negative expected EBITDA margin cannot be calibrated:
+    it must be skipped and logged, not abort the whole backtest."""
+    sample = bundle.companies[bundle.companies["fiscal_year"] == 2024].head(3).copy()
+    bad_idx = sample.index[0]
+    sample.loc[bad_idx, "ebitda"] = -1.0
+    runner = BacktestRunner(
+        bundle.sectors,
+        bundle.macro,
+        rating_master_scale=bundle.rating_master_scale,
+        n_trials=500,
+        n_years=2,
+    )
+    result = runner.run(sample, seed=1)
+    assert len(result.rows) == 2
+    assert len(result.skipped) == 1
+    assert result.skipped[0]["company_id"] == str(sample.loc[bad_idx, "company_id"])
+    assert "skipped" in result.summary()
+    assert not result.skipped_dataframe().empty
+
+
+def test_runner_survives_negative_nwc_companies(bundle):
+    """Negative NWC (frequent in ATECO 4672 wholesale) used to crash the
+    backtest via the Weibull floor; it must now simulate normally."""
+    sample = bundle.companies[bundle.companies["fiscal_year"] == 2024].head(2).copy()
+    neg_idx = sample.index[0]
+    shift = float(sample.loc[neg_idx, "net_working_capital"]) + 0.3
+    sample.loc[neg_idx, "net_working_capital"] = -0.3
+    sample.loc[neg_idx, "net_invested_capital"] = (
+        float(sample.loc[neg_idx, "net_invested_capital"]) - shift
+    )
+    runner = BacktestRunner(
+        bundle.sectors,
+        bundle.macro,
+        rating_master_scale=bundle.rating_master_scale,
+        n_trials=500,
+        n_years=2,
+    )
+    result = runner.run(sample, seed=1)
+    assert len(result.rows) == 2
+    assert not result.skipped

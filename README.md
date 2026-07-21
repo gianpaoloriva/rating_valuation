@@ -272,10 +272,10 @@ Da luglio 2026 il dataset principale della suite è reale: **277 società italia
 1. **Outlier per immobilizzazioni finanziarie**: le società con partecipazioni/crediti finanziari immobilizzati **> 10% del totale attivo in almeno un anno** sono escluse dal campione (43 su 320). Motivazione: quelle poste non generano EBITDA e distorcerebbero ROIC, intensità di capitale del BMS e distribuzione NFA/Ricavi del Monte Carlo. Per le società rimaste, le immobilizzazioni finanziarie (ormai marginali) restano nel capitale investito.
 2. **Oneri finanziari**: AIDA espone solo il saldo netto della gestione finanziaria; `interest_expense` è il saldo negativo (proxy, oneri lordi non disponibili).
 3. **NWC come residuo**: `NWC = NIC − NFA` con `NIC = PN + PFN`, così TFR e fondi (non esposti dall'export) restano impliciti e gli invarianti di bilancio chiudono per costruzione (0 violazioni su 1.329 bilanci).
-4. **Target**: estratto casualmente con seed fisso (42) tra le società con panel 2020–2024 completo → **TRAFER SPA** (`company_id = trafer_spa`). Nota: il sorteggio ha selezionato un credito debole (ricavi da 20,7 a 7,5 M€ tra 2022 e 2024, PD simulata a 1 anno ≈ 93%, rating implicito C/D) — un caso realistico per il comitato crediti; per un target diverso basta cambiare `TARGET_SEED` nell'ETL.
+4. **Target**: **METAL D S.R.L.** (`company_id = metal_d_s_r_l`), scelta il 2026-07-21 con criterio quantitativo tra le 251 società con panel 2020–2024 completo: EBITDA e NWC positivi su tutti gli anni, debito materiale (2,45 M€, D/E ≈ 0,6), e minima distanza dalle mediane di settore su margine EBITDA (5,6%), NFA/Ricavi (15,7%), NWC/Ricavi (36,9%) e taglia (12,0 M€ di ricavi) — un grossista "fisico" rappresentativo del campione (PD cumulata 3y simulata ≈ 0,8%, rating implicito ~BB+). La precedente estrazione casuale (seed 42, `trafer_spa`) aveva selezionato un operatore di fatto broker, con struttura patrimoniale non rappresentativa: le analisi che partivano da lui risultavano fuorvianti. Per un target diverso: `python3 data/etl/aida_to_companies.py --target <company_id|P.IVA>`.
 5. **Chiave settoriale**: `gics_sub_industry = "Metals Wholesale (ATECO 4672)"` coerente tra `companies.csv` e `sectors.csv`; beta unlevered 0,75 (Damodaran, Trading Companies & Distributors Europa), shape Weibull di default dal paper RAPD; macro IT 2020–2024 da fonti pubbliche (stime da raffinare per valutazioni puntuali).
 
-**Limite noto**: il simulatore di credito richiede un margine EBITDA atteso positivo; sulle ~19 società 2024 in perdita operativa `from_company()` solleva errore — vanno filtrate a monte.
+**Limite noto**: il simulatore di credito richiede un margine EBITDA atteso positivo; sulle società in perdita operativa (21 nel FY2024) `from_company()` solleva errore. Dal 2026-07-21 il `BacktestRunner` le salta automaticamente e le logga in `BacktestResult.skipped` (mostrate anche in dashboard); per le analisi puntuali vanno comunque filtrate a monte. Il NWC negativo (fisiologico nell'ingrosso, forte credito di fornitura) è invece pienamente supportato.
 
 ### Dataset sintetico per test e demo (`data/synthetic/*.csv`)
 
@@ -294,7 +294,7 @@ Ogni documento ha un ruolo preciso — partire da qui per capire cosa leggere:
 | **README.md** (questo file) | Executive summary, decisioni di design, interpretazione dei risultati, quickstart | Primo contatto, board, comitato |
 | [`requirements.md`](requirements.md) | Prerequisiti completi: hardware, installazione (locale/Docker), dati, checklist pre-volo, troubleshooting | Analista che deve installare ed eseguire |
 | [`overview.md`](overview.md) | Sintesi teorica dei 3 paper: tutte le formule, il quadro integrato, le note implementative | Chi deve capire o difendere la metodologia |
-| [`TODO.md`](TODO.md) | Stato di sviluppo e backlog con priorità | Chi pianifica gli interventi |
+| [`TODO.md`](TODO.md) | Backlog aperto (in testa) + storico del completato (in coda) | Chi pianifica gli interventi |
 | [`data/schema.md`](data/schema.md) | Schema autoritativo dei CSV (colonne, unità, invarianti) | Chi prepara i dati |
 | [`data/mapping_iv_directive.md`](data/mapping_iv_directive.md) | Mapping IV Direttiva (AIDA) → schema e decisioni di riclassificazione del dataset reale | Chi fa onboarding di bilanci reali |
 | [`docs/Capitolo_doc.md`](docs/Capitolo_doc.md) | Capitolo editoriale: architettura, capability e fondamenti (per pubblicazione) | Lettori del Quaderno |
@@ -308,7 +308,7 @@ rating_valuation/
 ├── requirements.md                prerequisiti di installazione ed esecuzione
 ├── overview.md                    sintesi completa dei 3 paper + quadro integrato
 ├── CLAUDE.md                      guida all'architettura per agenti Claude Code
-├── TODO.md                        stato sviluppo + backlog post-audit
+├── TODO.md                        backlog aperto + storico completato
 ├── data/                          dataset principale (reale AIDA) + schema + ETL
 │   ├── real/                      export AIDA grezzi (xlsx) + benchmark GDO separato
 │   ├── etl/                       ETL AIDA → CSV schema (aida_to_companies.py)
@@ -325,7 +325,7 @@ rating_valuation/
 
 ## Stato del progetto
 
-Tutti i tool principali sono a produzione e coperti da una test suite di 193 test che gira in circa un secondo. Il dataset principale è reale (AIDA, ATECO 4672) e la dashboard si esegue on-demand su AWS Fargate Spot (`deploy/start.sh`, nessun servizio sempre attivo). L'elenco dettagliato delle funzionalità completate e il backlog delle correzioni aperte (con priorità) sono in [`TODO.md`](TODO.md).
+Tutti i tool principali sono a produzione e coperti da una test suite di 201 test che gira in circa un secondo. Il dataset principale è reale (AIDA, ATECO 4672, target METAL D S.R.L.) e la dashboard si esegue on-demand su AWS Fargate Spot (`deploy/start.sh`, nessun servizio sempre attivo). Il backlog aperto (integrazione Appendice A nel simulatore, backtest Sezione 5 in attesa delle label di default, estrazione del package condiviso) e lo storico del completato sono in [`TODO.md`](TODO.md) — backlog in testa, completato in coda.
 
 ---
 

@@ -170,6 +170,10 @@ class AgenticCreditRiskSimulator:
         nwc_min_delta: float = 0.05,
         n_trials: int = DEFAULT_N_TRIALS,
         n_years: int = DEFAULT_N_YEARS,
+        cash_yield: float = 0.0,
+        payout_ratio: float = 0.0,
+        debt_floor: float = 0.0,
+        tax_stochastic: bool = False,
     ) -> AgenticCreditRiskSimulator:
         """Build a simulator directly from the reference datasets.
 
@@ -177,6 +181,11 @@ class AgenticCreditRiskSimulator:
         central value (company-specific) into the minimum of the Weibull
         (sector-wide). They are intentionally exposed as knobs so the
         analyst can tighten them for stress testing.
+
+        ``cash_yield``, ``payout_ratio``, ``debt_floor`` and
+        ``tax_stochastic`` are the Appendix A opt-in extensions carried by
+        :class:`InitialState`; the neutral defaults reproduce the reduced
+        model.
         """
         sector_row = sectors[
             (sectors["gics_sub_industry"] == company_row["gics_sub_industry"])
@@ -227,9 +236,14 @@ class AgenticCreditRiskSimulator:
             minimum=max(0.0, nfa_center - nfa_min_delta),
             shape=float(s["weibull_nfa_shape"]),
         )
+        # NWC/Revenues is the only physiologically negative variable (strong
+        # supplier credit in wholesale trade): the minimum is NOT floored at
+        # zero, the Weibull location may be negative. Flooring it while the
+        # mean stayed negative raised ValueError and broke the backtest on
+        # negative-NWC companies.
         nwc_params = WeibullParams.from_mean_min(
             mean=nwc_center,
-            minimum=max(0.0, nwc_center - nwc_min_delta),
+            minimum=nwc_center - nwc_min_delta,
             shape=float(s["weibull_nwc_shape"]),
         )
 
@@ -281,6 +295,10 @@ class AgenticCreditRiskSimulator:
             tax_rate=tax_rate,
             cost_of_debt=float(company_row["cost_of_debt"]),
             wacc=wacc_pretax,
+            cash_yield=cash_yield,
+            payout_ratio=payout_ratio,
+            debt_floor=debt_floor,
+            tax_stochastic=tax_stochastic,
         )
 
         return cls(
@@ -300,6 +318,8 @@ class AgenticCreditRiskSimulator:
         seed: int | None = None,
         map_rating: bool = True,
         keep_diagnostic: bool = True,
+        collateral_coverage: float = 0.0,
+        default_buffer: float = 0.0,
     ) -> AgenticCreditRiskResult:
         scenarios = sample_scenarios(
             self.params, n_trials=self.n_trials, n_years=self.n_years, seed=seed
@@ -405,7 +425,13 @@ class AgenticCreditRiskSimulator:
             ev_mat[:, t] = ev
 
         # Cash matrix is now dynamically accumulated inside the year loop.
-        metrics = compute_metrics(ev=ev_mat, debt=debt_mat, cash=cash_mat)
+        metrics = compute_metrics(
+            ev=ev_mat,
+            debt=debt_mat,
+            cash=cash_mat,
+            collateral_coverage=collateral_coverage,
+            default_buffer=default_buffer,
+        )
 
         implied_rating = None
         if map_rating:

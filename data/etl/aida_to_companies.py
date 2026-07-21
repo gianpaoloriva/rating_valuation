@@ -11,13 +11,15 @@ Regole concordate (v. data/mapping_iv_directive.md per il dettaglio voce per voc
 - interest_expense = saldo negativo della gestione finanziaria (proxy, AIDA non separa gli oneri lordi);
 - NWC ricavato come residuo NIC - NFA con NIC = PN + PFN, cosi' gli invarianti di
   common/invariants.py chiudono per costruzione (TFR/fondi restano impliciti nel NWC);
-- target scelto casualmente (seed fisso) tra le societa' con panel 2020-2024 completo.
+- target scelto casualmente (seed fisso) tra le societa' con panel 2020-2024 completo,
+  salvo indicazione esplicita con --target.
 
-Uso:  python3 data/etl/aida_to_companies.py
+Uso:  python3 data/etl/aida_to_companies.py [--target COMPANY_ID_O_PIVA]
 """
 
 from __future__ import annotations
 
+import argparse
 import re
 import unicodedata
 from pathlib import Path
@@ -130,7 +132,7 @@ def read_year(path: Path) -> pd.DataFrame:
     return df
 
 
-def build_companies() -> pd.DataFrame:
+def build_companies(target: str | None = None) -> pd.DataFrame:
     frames = []
     for year in YEARS:
         df = read_year(REAL_DIR / f"{year}-ME.xlsx")
@@ -223,14 +225,33 @@ def build_companies() -> pd.DataFrame:
         id_map[piva] = slug
     out["company_id"] = out["piva"].map(id_map)
 
-    # target casuale (seed fisso) tra le societa' con panel completo
+    # target: esplicito via --target (company_id o P.IVA), altrimenti casuale
+    # (seed fisso) tra le societa' con panel completo
     counts = out.groupby("piva")["fiscal_year"].nunique()
     complete = sorted(counts[counts == len(YEARS)].index)
-    rng = np.random.default_rng(TARGET_SEED)
-    target_piva = rng.choice(complete)
-    out["is_target"] = (out["piva"] == target_piva).astype(int)
     print(f"societa' con panel completo {YEARS[0]}-{YEARS[-1]}: {len(complete)}")
-    print(f"TARGET (seed={TARGET_SEED}): {id_map[target_piva]}  (P.IVA {target_piva})")
+    if target:
+        by_slug = {slug: piva for piva, slug in id_map.items()}
+        if target in by_slug:
+            target_piva = by_slug[target]
+        elif target in id_map:
+            target_piva = target
+        else:
+            raise SystemExit(
+                f"--target '{target}' non trovato: indicare un company_id "
+                "(es. trafer_spa) o una P.IVA presente nel dataset"
+            )
+        if counts.get(target_piva, 0) < len(YEARS):
+            print(
+                f"ATTENZIONE: {id_map[target_piva]} non ha il panel completo "
+                f"{YEARS[0]}-{YEARS[-1]} ({counts.get(target_piva, 0)} anni)"
+            )
+        print(f"TARGET (--target): {id_map[target_piva]}  (P.IVA {target_piva})")
+    else:
+        rng = np.random.default_rng(TARGET_SEED)
+        target_piva = rng.choice(complete)
+        print(f"TARGET (seed={TARGET_SEED}): {id_map[target_piva]}  (P.IVA {target_piva})")
+    out["is_target"] = (out["piva"] == target_piva).astype(int)
 
     cols = [
         "company_id", "company_name", "is_target", "country", "currency",
@@ -270,8 +291,15 @@ def build_macro() -> pd.DataFrame:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "--target",
+        help="company_id (slug) o P.IVA della societa' da flaggare is_target=1; "
+        "default: estrazione casuale con seed fisso tra i panel completi",
+    )
+    args = parser.parse_args()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    companies = build_companies()
+    companies = build_companies(target=args.target)
     companies.to_csv(OUT_DIR / "companies.csv", index=False)
     build_sectors().to_csv(OUT_DIR / "sectors.csv", index=False)
     build_macro().to_csv(OUT_DIR / "macro.csv", index=False)

@@ -215,10 +215,11 @@ Tabella di 22 righe (AAA → D). Già fornita con il repo, valori dal paper RAPD
 
 Il repo include **due dataset completi**, entrambi conformi allo schema:
 
-- **Dataset principale (reale)** — `data/*.csv`: 277 società italiane del commercio all'ingrosso di metalli (ATECO 4672), esercizi 2020–2024, da export AIDA; target `trafer_spa` (estrazione casuale, seed 42). È quello che libreria e dashboard caricano di default. Si rigenera dagli xlsx grezzi in `data/real/` con:
+- **Dataset principale (reale)** — `data/*.csv`: 277 società italiane del commercio all'ingrosso di metalli (ATECO 4672), esercizi 2020–2024, da export AIDA; target `metal_d_s_r_l` (METAL D S.R.L., scelta il 2026-07-21 come società più vicina alle mediane di settore con EBITDA e NWC positivi e debito materiale — la precedente estrazione casuale `trafer_spa` era di fatto un broker). È quello che libreria e dashboard caricano di default. Si rigenera dagli xlsx grezzi in `data/real/` con:
 
   ```bash
-  python3 data/etl/aida_to_companies.py
+  python3 data/etl/aida_to_companies.py --target metal_d_s_r_l
+  # senza --target: estrazione casuale con seed fisso 42
   ```
 
   Le regole di riclassificazione sono documentate in `data/mapping_iv_directive.md`.

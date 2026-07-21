@@ -13,9 +13,15 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from app._common import load_bundle, page_header, sector_selector, target_selector, year_selector
+from app._common import (
+    load_bundle,
+    page_header,
+    peer_sample_for_target,
+    sector_selector,
+    target_selector,
+    year_selector,
+)
 from rating_valuation.bms.builder import BMSBuilder
-from rating_valuation.common.data_loader import peer_sample
 from rating_valuation.differential import DifferentialAnalyzer
 
 st.set_page_config(page_title="Differential Analysis", page_icon="🔀", layout="wide")
@@ -41,7 +47,7 @@ def main() -> None:
     # ------------------------------------------------------------------
     # Build BMS and differential
     # ------------------------------------------------------------------
-    peers = peer_sample(bundle.companies, sub_industry, fiscal_year=year)
+    peers = peer_sample_for_target(bundle, sub_industry, year, target)
     if peers.empty:
         st.error(f"Nessun peer per {sub_industry}/{year}")
         return

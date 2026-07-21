@@ -97,6 +97,7 @@ def compute_metrics(
     debt: np.ndarray,       # shape (n_trials, n_years) — end-of-period debt
     cash: np.ndarray,       # shape (n_trials, n_years) — excess cash at period end
     collateral_coverage: float = 0.0,
+    default_buffer: float = 0.0,
 ) -> CreditMetrics:
     """Aggregate EV / debt / cash matrices into credit metrics.
 
@@ -110,6 +111,15 @@ def compute_metrics(
         waterfall): ``LGD = clip(EAD·(1 − collateral_coverage) − max(EV, 0)
         − max(CASH, 0), 0, EAD·(1 − collateral_coverage))``.
         Default 0 reproduces the unsecured behavior.
+    default_buffer : float
+        Anticipated-default threshold (linee guida WACC/credit risk, Fase 1
+        Punto 4): the trigger becomes ``EV_t < (D_t − CASH_t)·(1 + buffer)``,
+        acknowledging that real-world default (covenant breach, liquidity
+        squeeze, refinancing denial) occurs before net equity reaches zero.
+        Default 0 reproduces the paper's eq. [13] baseline exactly. Note the
+        multiplicative form only widens the trigger on trials with positive
+        net debt; on net-cash trials the threshold moves further away — the
+        buffer models creditor pressure, which requires creditors.
     """
     if ev.shape != debt.shape or ev.shape != cash.shape:
         raise ValueError("ev, debt, cash must share the same shape")
@@ -117,9 +127,11 @@ def compute_metrics(
         raise ValueError(
             f"collateral_coverage must be in [0, 1], got {collateral_coverage}"
         )
+    if default_buffer < 0.0:
+        raise ValueError(f"default_buffer must be >= 0, got {default_buffer}")
     n_trials, n_years = ev.shape
 
-    default_matrix = ev < (debt - cash)  # shape (n_trials, n_years)
+    default_matrix = ev < (debt - cash) * (1.0 + default_buffer)  # (n_trials, n_years)
 
     # Yearly (unconditional) default frequency
     yearly_freq = default_matrix.mean(axis=0)

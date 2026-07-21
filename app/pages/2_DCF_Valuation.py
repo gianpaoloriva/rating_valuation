@@ -75,6 +75,19 @@ def main() -> None:
         g_stage2 = st.sidebar.slider(
             "Crescita NOPAT stadio 2 (%)", 0.0, 10.0, 4.0, step=0.1
         ) / 100.0
+        use_decay_base = st.sidebar.checkbox(
+            "Base decay ROIC esplicita",
+            value=False,
+            help="Convenzione Scarano/Di Napoli p. 31: il tasso di fade parte dal "
+            "ROIC marginale mediano dello stadio 1 invece che dall'ultimo anno.",
+        )
+        roic_decay_base = (
+            st.sidebar.slider(
+                "ROIC mediano stadio 1 (%)", 5.0, 40.0, 20.0, step=0.5
+            ) / 100.0
+            if use_decay_base
+            else None
+        )
 
     # ------------------------------------------------------------------
     # Derive WACC
@@ -153,8 +166,10 @@ def main() -> None:
             n_convergence_years=n_convergence,
             roic_marginal_start=roic_start,
             growth_stage2=g_stage2,
+            roic_marginal_decay_base=roic_decay_base,
             terminal_growth=g_terminal,
             net_debt_today=float(target["net_debt"]),
+            gdp_nominal_5y_avg=float(macro["gdp_nominal_growth_5y_avg"]),
         )
         result_3s = value_three_stage(inputs)
         result = result_3s
@@ -229,18 +244,24 @@ def main() -> None:
     # Coherence check
     # ------------------------------------------------------------------
     st.subheader("Validatore coerenza Terminal Value")
-    report = check_coherence(
-        wacc=wacc,
-        growth=g_terminal,
-        roic_new_investments=roic_marginal_final,
-        implied_reinvestment=implied_reinvestment,
-        tv_weight=result.tv_weight,
-        roic_marginal_final=roic_marginal_final,
-        nopat_t_plus_1=nopat_t_plus_1,
-        gdp_nominal_5y_avg=float(macro["gdp_nominal_growth_5y_avg"]),
-        used_coherent_formula=True,
-        inflation=float(macro["inflation_rate"]),
-    )
+    if model.startswith("3 stadi") and result_3s.coherence_report is not None:
+        # Il 3 stadi porta con sé il report integrato (tutti i 7 check, C1
+        # incluso via gdp_nominal_5y_avg) calcolato da value_three_stage.
+        report = result_3s.coherence_report
+        st.caption("Report integrato di ThreeStageResult (calcolato da value_three_stage)")
+    else:
+        report = check_coherence(
+            wacc=wacc,
+            growth=g_terminal,
+            roic_new_investments=roic_marginal_final,
+            implied_reinvestment=implied_reinvestment,
+            tv_weight=result.tv_weight,
+            roic_marginal_final=roic_marginal_final,
+            nopat_t_plus_1=nopat_t_plus_1,
+            gdp_nominal_5y_avg=float(macro["gdp_nominal_growth_5y_avg"]),
+            used_coherent_formula=True,
+            inflation=float(macro["inflation_rate"]),
+        )
 
     checks_df = pd.DataFrame(
         [

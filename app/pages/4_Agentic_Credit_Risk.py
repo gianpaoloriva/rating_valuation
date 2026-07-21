@@ -56,6 +56,23 @@ def main() -> None:
     nfa_delta = st.sidebar.slider("Δ min NFA/Fatturato (p.p.)", 0.0, 20.0, 8.0) / 100.0
     nwc_delta = st.sidebar.slider("Δ min NWC/Fatturato (p.p.)", 0.0, 15.0, 5.0) / 100.0
 
+    with st.sidebar.expander("Parametri avanzati (Appendice A)"):
+        st.caption(
+            "Estensioni opt-in del paper RAPD: i default neutri riproducono "
+            "il modello ridotto."
+        )
+        cash_yield = st.slider("Rendimento cassa (%)", 0.0, 5.0, 0.0, step=0.1) / 100.0
+        payout_ratio = st.slider("Payout ratio dividendi (%)", 0.0, 100.0, 0.0, step=5.0) / 100.0
+        debt_floor = st.number_input("Debt floor (EUR M)", min_value=0.0, value=0.0, step=0.5)
+        tax_stochastic = st.checkbox("Tax rate stocastico U(0.7τ, 1.5τ)", value=False)
+        collateral_coverage = st.slider(
+            "Copertura collateral (%)", 0.0, 100.0, 0.0, step=5.0
+        ) / 100.0
+        default_buffer = st.slider(
+            "Buffer default anticipato (%)", 0.0, 30.0, 0.0, step=1.0,
+            help="Trigger: EV < (D − CASH)·(1 + buffer). 0 = eq. [13] baseline.",
+        ) / 100.0
+
     run = st.sidebar.button("▶ Esegui simulazione", type="primary")
 
     # ------------------------------------------------------------------
@@ -87,8 +104,16 @@ def main() -> None:
             nwc_min_delta=nwc_delta,
             n_trials=int(n_trials),
             n_years=int(n_years),
+            cash_yield=cash_yield,
+            payout_ratio=payout_ratio,
+            debt_floor=debt_floor,
+            tax_stochastic=tax_stochastic,
         )
-        result = simulator.run(seed=int(seed))
+        result = simulator.run(
+            seed=int(seed),
+            collateral_coverage=collateral_coverage,
+            default_buffer=default_buffer,
+        )
 
     metrics = result.metrics
 

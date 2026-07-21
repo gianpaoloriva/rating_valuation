@@ -143,6 +143,9 @@ class BacktestResult:
     n_trials: int = 0
     n_years: int = 0
     seed: int | None = None
+    # Companies that could not be simulated (e.g. negative expected EBITDA
+    # margin): list of {company_id, company_name, fiscal_year, reason}.
+    skipped: list[dict] = field(default_factory=list)
 
     # ------------------------------------------------------------------
 
@@ -187,14 +190,20 @@ class BacktestResult:
             )
         return pd.DataFrame(rows)
 
+    def skipped_dataframe(self) -> pd.DataFrame:
+        return pd.DataFrame(self.skipped)
+
     def summary(self) -> str:
         df = self.as_dataframe()
         n_def = int(df["is_defaulted"].sum())
         n_perf = int((df["is_defaulted"] == 0).sum())
-        return (
+        base = (
             f"Backtest: {len(df)} companies ({n_def} defaulted, {n_perf} performing), "
             f"{self.n_trials} trials × {self.n_years}y horizon"
         )
+        if self.skipped:
+            base += f" — {len(self.skipped)} skipped (not simulatable)"
+        return base
 
 
 # -----------------------------------------------------------------------------
@@ -270,17 +279,32 @@ class BacktestRunner:
         """
         defaulted_ids = defaulted_ids or set()
         rows: list[BacktestRow] = []
+        skipped: list[dict] = []
 
         for i, (_, company) in enumerate(companies.iterrows()):
             # --- Agentic Credit Risk ------------------------------------
-            sim = AgenticCreditRiskSimulator.from_company(
-                company,
-                self.sectors,
-                self.macro,
-                n_trials=self.n_trials,
-                n_years=self.n_years,
-                **self.acr_kwargs,
-            )
+            # Companies whose distributions cannot be calibrated (typically
+            # a negative expected EBITDA margin) are skipped and logged
+            # instead of aborting the whole backtest.
+            try:
+                sim = AgenticCreditRiskSimulator.from_company(
+                    company,
+                    self.sectors,
+                    self.macro,
+                    n_trials=self.n_trials,
+                    n_years=self.n_years,
+                    **self.acr_kwargs,
+                )
+            except ValueError as exc:
+                skipped.append(
+                    {
+                        "company_id": str(company["company_id"]),
+                        "company_name": str(company["company_name"]),
+                        "fiscal_year": int(company["fiscal_year"]),
+                        "reason": str(exc),
+                    }
+                )
+                continue
             acr_result = sim.run(seed=(seed + i) if seed is not None else None)
             acr_pd = float(acr_result.metrics.cumulative_pd[-1])
             acr_rating = acr_result.implied_rating or "N/A"
@@ -335,4 +359,5 @@ class BacktestRunner:
             n_trials=self.n_trials,
             n_years=self.n_years,
             seed=seed,
+            skipped=skipped,
         )
